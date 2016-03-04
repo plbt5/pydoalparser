@@ -58,10 +58,10 @@
 		<map>
 			<Cell rdf:about="MappingRule_1">
 				<entity1>
-					<edoal:Property rdf:about="&wine;yearValue" />
+					<edoal:Property rdf:about="&wine;VintageYear" />
 				</entity1>
 				<entity2>
-					<edoal:Property rdf:about="&vin;anneeMillesime" />
+					<edoal:Property rdf:about="&vin;Millesime" />
 				</entity2>
 				<measure rdf:datatype="&xsd;float">1.0</measure>
 				<relation>Equivalence</relation>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE rdf:RDF [
+<!ENTITY xsd "http://www.w3.org/2001/XMLSchema#">
+<!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA#">
+<!ENTITY ontoB	"http://tutorial.topbraid.com/ontoB#">
+<!ENTITY proton "http://proton.semanticweb.org/">
+]>
+
+<rdf:RDF xmlns="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xml:base="http://oms.omwg.org/ontoA-ontoB/" 
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+	xmlns:align="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" 
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:ex="http://example.org" 
+	xmlns:ontoA="http://tutorial.topbraid.com/ontoA#"
+	xmlns:ontoB="http://tutorial.topbraid.com/ontoB#"
+	xmlns:proton="http://proton.semanticweb.org/"
+	xmlns:edoal="http://ns.inria.org/edoal/1.0/#">
+	
+	<Alignment rdf:about="http://oms.omwg.org/ontoA-ontoB/">
+		<xml>yes</xml>
+		<dc:creator>PaulBrandt</dc:creator>
+		<dc:date>2015/08/25</dc:date>
+		<method>manual</method>
+		<purpose>TEST DATA (missing alignments)</purpose>
+		<level>2EDOAL</level>
+		<type>?*</type>
+		<onto1>
+			<Ontology rdf:about="&ontoA;">
+				<formalism>
+<!-- 				<location>ontoA.xml</location> -->
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto1>
+		<onto2>
+			<Ontology rdf:about="&ontoB;">
+				<location>resources/nl/test1/ontoB.xml</location>
+				<formalism>
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto2>
+		<!-- Testcase: Missing <map><Cell>...</Cell></map> -->
+		<map>
+			<Cell rdf:about="MappingRule_1">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<!-- Testcase: Missing <entity2> -->
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+	</Alignment>
+</rdf:RDF>

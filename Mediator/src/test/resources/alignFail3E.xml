@@ -24,7 +24,7 @@
 		<dc:creator>PaulBrandt</dc:creator>
 		<dc:date>2015/08/25</dc:date>
 		<method>manual</method>
-		<purpose>initial example for a simple alignment</purpose>
+		<purpose>TEST DATA (missing alignments)</purpose>
 		<level>2EDOAL</level>
 		<type>?*</type>
 		<onto1>
@@ -46,6 +46,17 @@
 			</Ontology>
 		</onto2>
 		<!-- Testcase: Missing <map><Cell>...</Cell></map> -->
-
+		<map>
+			<Cell rdf:about="MappingRule_1">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<!-- Testcase: Missing <relation> -->
+			</Cell>
+		</map>
 	</Alignment>
 </rdf:RDF>

@@ -9,6 +9,7 @@ from sparqlparser.grammar import ParseInfo
 import warnings
 
 import xml.etree.cElementTree as etree
+from builtins import sorted
 
 class Test(unittest.TestCase):
 
@@ -28,16 +29,23 @@ class Test(unittest.TestCase):
             '''
                 Execute all Correspondence tests
             '''
+            if info or debug >= 1:
+                print()
+                print('=-'*10)
+                print('Correspondence tests')
+                print('=-'*10)
             for t in testCases[rule]:
                 if info:
-                    print('='*20)
                     print('\ntesting', rule, 'with', len(t['pass']), 'pass case(s) and', len(t['fail']), 'fail case(s)')
                 if debug >= 3:
                     print('> pass cases:', t['pass'])
                     print('> fail cases:', t['fail'])
-                    print()
+#                     print('> EDOAL case:', t['EDOAL'])
+#                     print('> EDOAL type:', type(t['EDOAL']))
                 # Create the mediator for this testCase
                 m = Mediator(t['EDOAL'].getroot())
+                if debug >= 3:
+                    print('> EDOALalgmt:', m.getName())
                 # Create the input query an related expected reference query for this testCase
                 inData = 'SELECT ?v WHERE {}'.format(t['data'][0])
                 refData = 'SELECT ?v WHERE {}'.format(t['data'][1])
@@ -45,20 +53,22 @@ class Test(unittest.TestCase):
                     print('> input qry :', inData)
                 if debug >= 3:
                     print('> expect qry:', refData)
-                # PASS: Execute the test for each correspondence that is expected to pass on this query
+                if debug >= 1:
+                    print()
+                # Execute all PASS cases
                 for p in t['pass']:
                     if debug >= 1:
-                        print('testing pass case:', p)
+                        print('testing PASS case:', p)
                     r = m.corrs[p].translate(inData)
-                    if debug >= 1:
-                        print('> result qry:', r, '\n')
+                    if debug >= 3:
+                        print('      result:', r)
                     assert ''.join(refData.lower().split()) == ''.join(r.lower().split()), 'Translated data conflicts with expected data for correspondence {}'.format(p)
                 
-                # FAIL: Execute the test for each correspondence that is expected to fail on this query
+                # Execute all FAIL cases
                 f = []                        
-                for f in t['fail']: 
+                for f in t['fail']:
                     if debug >= 1:
-                        print('testing fail case:', f)
+                        print('testing FAIL case:', f)
 #                     with self.assertRaises(NotImplementedError):
                     try:
                         r = m.corrs[f[0]].translate(inData)
@@ -66,15 +76,21 @@ class Test(unittest.TestCase):
                         print('Incorrect result:', r)
                         assert False, 'Test {} should have raised exception {}'.format(f[0], f[1])
                     except Exception as e: assert type(e) == f[1], 'Test {} should have raised exception {}; got {}'.format(f[0], f[1], type(e))
-        
+
+                if info: print('='*20)
+                m = None
         
         def testFuncM():
             '''
                 Execute all Mediator tests
             '''
+            if info or debug >= 1:
+                print()
+                print('=-'*7)
+                print('Mediator tests')
+                print('=-'*7)
             for t in testCases[rule]:
                 if info:
-                    print('='*20)
                     print('\ntesting', rule, 'with', len(t['pass']), 'pass case(s) and', len(t['fail']), 'fail case(s)')
                 if debug >= 3:
                     print('> pass cases:', t['pass'])
@@ -98,7 +114,7 @@ class Test(unittest.TestCase):
                         #TODO: Correct TypeError that is raised for print('result:', r)
 #                         print('result: TODO print the correct structure of the mediator and correspondence')
                     assert r.about == crit['about'], 'Mediator attribute "{}" conflicts with expected value {}'.format(r.about, crit['about'])
-                    assert len(r.corrs) == crit['corrs'], 'Mediator attribute "{}" conflicts with expected value {}'.format(r.about, crit['corrs'])
+                    assert len(r.corrs) == crit['corrs'], 'Mediator attribute "{}" has {} correspondences, which conflicts with expected value {}'.format(r.about, len(r.corrs), crit['corrs'])
                 
                 # FAIL: Execute the test for each correspondence that is expected to fail on this query
                                 # Missing <Alignment> element
@@ -114,7 +130,9 @@ class Test(unittest.TestCase):
                         m = Mediator(rdf.getroot())
                         assert False, 'Test {} should have raised exception {}'.format(f[0], f[1])
                     except Exception as e: assert type(e) == f[1], 'Test {} should have raised exception {}; got {}'.format(f[0], f[1], type(e))
-
+            if info:
+                print('='*20)
+                
         # Run the actual tests here                
         if rule == 'MEDIATOR': return testFuncM
         else: return testFuncC
@@ -126,20 +144,28 @@ class Test(unittest.TestCase):
         self.testCases['MEDIATOR'] = []
             
         self.testCases['MEDIATOR'].append({ 
-            'pass': {'resources/wine_align.xml': 
-                      {'about': 'http://oms.omwg.org/wine-vin/', 
-                       'corrs': 5},
-                     'resources/alignPass0.xml': 
-                      {'about': 'http://oms.omwg.org/ontoA-ontoB/', 
-                       'corrs': 1} 
+            # Since MEDIATOR testCases do not have sufficient granularity to distinguish Cell Abouts (i.e., MappingRules)
+            # it is NOT POSSIBLE to use an Alignment.xml file for BOTH pass AND fail 
+            'pass': {'resources/alignPassSimple0.xml':                      # Simple Class-EQ-Class, Prop-EQ-Prop, Reln-EQ-Reln
+                      {'about': 'http://ds.tno.nl/ontoA-ontoB/CPR-EQ-CPR', 
+                       'corrs': 4},
+                     'resources/wine_align.xml':                            # Simple Class-EQ-Class, Prop-EQ-Prop, Reln-LT-Reln,
+                      {'about': 'http://oms.omwg.org/wine-vin/',            #   & one SmplSrcCls-EQ-CmplxTgtCls, one CmpxlSrcCls-LT-CmplxTgtCls
+                       'corrs': 5}
                     },
-            'fail': [['resources/alignWrong0A.xml', RuntimeError],          # Missing <Alignment> element
-                    ['resources/alignWrong0B.xml', ValueError],             # Missing 'rdf:about="somename"' in <Alignment > element
-                    ['resources/alignWrong1A.xml', NotImplementedError],    # Incorrect value for <Level> element: 2EDOAL expected
-                    ['resources/alignWrong1B.xml', RuntimeError],           # Missing <Level> element 
-                    ['resources/alignWrong2A.xml', RuntimeError],           # Missing <type> element 
-                    ['resources/alignWrong2B.xml', ValueError],             # Illegal value for <Level> element 
-                    ['resources/alignWrong3.xml', RuntimeError]             # Missing <map><Cell>...</Cell></map> element 
+            'fail': [['resources/alignFail0A.xml', RuntimeError],          # Missing <Alignment> element
+                    ['resources/alignFail0B.xml', ValueError],             # Missing 'rdf:about="somename"' in <Alignment > element
+                    ['resources/alignFail1A.xml', NotImplementedError],    # Incorrect value for <Level> element: 2EDOAL expected
+                    ['resources/alignFail1B.xml', RuntimeError],           # Missing <Level> element 
+                    ['resources/alignFail2A.xml', RuntimeError],           # Missing <type> element 
+                    ['resources/alignFail2B.xml', ValueError],             # Illegal value for <Level> element 
+                    ['resources/alignFail3A.xml', RuntimeError],           # Missing <map><Cell>...</Cell></map> element 
+                    ['resources/alignFail3B.xml', RuntimeError],           # Missing Cell Body element 
+                    ['resources/alignFail3C.xml', RuntimeError],           # Missing <entity1> element 
+                    ['resources/alignFail3D.xml', RuntimeError],           # Missing <entity2> element 
+                    ['resources/alignFail3E.xml', RuntimeError],           # Missing <relation> element 
+                    ['resources/alignFail3F.xml', RuntimeError],           # Missing About attribute in EDOAL element
+                    ['resources/alignFail3G.xml', NotImplementedError]               # Unknown EDOAL element 
                     ]
               }
             )
@@ -155,20 +181,42 @@ class Test(unittest.TestCase):
         self.testCases['SELECT'].append({
             'EDOAL': rdf, 
             'data': [inData, outData],
-            'pass': ['MappingRule_0'],
-            'fail': [['MappingRule_1', NotImplementedError],
-                    ['MappingRule_2', NotImplementedError],
+            'pass': ['MappingRule_0', 'MappingRule_1'],
+            'fail': [['MappingRule_2', NotImplementedError],
                     ['MappingRule_3', NotImplementedError],
                     ['MappingRule_4', NotImplementedError] 
                     ]
               }
             )
+        
+        with open('resources/alignPassSimple0.xml', 'r') as f:
+            rdf = etree.parse(f)
+        inData = '{?v <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://tutorial.topbraid.com/ontoA#unEquivanox> .}' 
+        outData = '{?v <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://tutorial.topbraid.com/ontoB#oneEq> .}' 
+        self.testCases['SELECT'].append({
+            'EDOAL': rdf, 
+            'data': [inData, outData],
+            'pass': ['MappingRule_0', 'MappingRule_1', 'MappingRule_2', 'MappingRule_3'],
+            'fail': [['MappingRule_4', KeyError]]
+              }
+            )
+
+#         # Debug code for checking all testcases.
+#         for k,v in sorted(self.testCases.items()):
+#             print(k, ':'),
+#             for el in v:
+#                 print('[')
+#                 for key, val in el.items():
+#                     print('\t{',key, ':', val, '}')
+#                 print(']')
+
+        
 
     def tearDown(self):
         pass
         
     def testCorrespondence(self):
-        Test.makeTestFunc('SELECT', self.testCases, info=False, debug=0)()
+        Test.makeTestFunc('SELECT', self.testCases, info=True, debug=3)()
 
             
        
@@ -184,7 +232,7 @@ class Test(unittest.TestCase):
         with self.assertRaises(TypeError):
             Mediator("string type") 
             
-        Test.makeTestFunc('MEDIATOR', self.testCases, info=False, debug=0)()
+        Test.makeTestFunc('MEDIATOR', self.testCases, info=True, debug=3)()
 
         
 if __name__ == "__main__":

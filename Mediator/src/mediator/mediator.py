@@ -7,6 +7,7 @@ Created on 26 feb. 2016
 # from EdoalParser.alignment import Alignment
 from sparqlparser.grammar import *
 import xml.etree.cElementTree as ET
+import warnings
 
 from turtle import __stringBody
 import sys
@@ -40,7 +41,10 @@ import sys
 #     def __init__(self):
 #         pass
  
-EDOALCLASS = '{http://ns.inria.org/edoal/1.0/#}Class'
+EDOALCLASS = '{http://ns.inria.org/edoal/1.0/#}class'
+EDOALRELN = '{http://ns.inria.org/edoal/1.0/#}relation'
+EDOALPROP = '{http://ns.inria.org/edoal/1.0/#}property'
+EDOALINST = '{http://ns.inria.org/edoal/1.0/#}instance'
 RDFABOUT = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about'
 
 ns = {
@@ -79,22 +83,30 @@ class Mediator(object):
             '''
             Create a new Correspondence by copying the children from an EDOAL cell into the object's fields. 
             -> el (ET.element): should contain the 'xmlns:Cell' element of an EDOAL mapping
-            Prerequisite: this EOAL cell should contain the elements: <xmlns:entity1>, <xmlns:entity2>, and <xmlns:relation>
+            Prerequisite: this EDOAL cell should contain the elements: <xmlns:entity1>, <xmlns:entity2>, and <xmlns:relation>
             
             Returns an object with fields:
-            - .nme: the name of the correspondence (reification of rdf:about in <Cell>)
-            - .src: the source entity expression
-            - .tgt: the target entity expression
-            - .rel: the EDOAL entity expression relation
+            - .nme: (string) : the name of the correspondence (reification of rdf:about in <Cell>)
+            - .src: (elementtree Element) : the source entity expression
+            - .tgt: (elementtree Element) : the target entity expression
+            - .rel: (string) : the EDOAL entity expression relation
             ''' 
             self.nme = el.get(RDFABOUT)
-            if self.nme == None: raise ValueError('XML attribute {} expected'.format(RDFABOUT))
+            if self.nme == None: raise ValueError('XML attribute {} expected in element {}'.format(RDFABOUT, el.tag))
+            
             self.src = el.find('xmlns:entity1', ns)
-            if self.src == None: raise RuntimeError('Edoal element <xmlns:entity1> required; found {}'.format(self.src.tag))
+            if self.src == None: raise RuntimeError('Edoal element <xmlns:entity1> required')
+            elif not ((self.src[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
+                raise NotImplementedError('Only edoal entity type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.src[0].tag.lower()))
+
             self.tgt = el.find('xmlns:entity2', ns)
-            if self.tgt == None: raise RuntimeError('Edoal element <xmlns:entity2> required; found {}'.format(self.tgt.tag))
-            self.rel = Mediator.canonical(el.find('xmlns:relation', ns).text)
-            if self.rel == None: raise RuntimeError('Edoal element <xmlns:relation> required; found {}'.format(self.rel))
+            if self.tgt == None: raise RuntimeError('Edoal element <xmlns:entity2> required')
+            elif not ((self.tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
+                raise NotImplementedError('Only edoal entity type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.tgt[0].tag.lower()))
+
+            rel = el.find('xmlns:relation', ns)
+            if rel == None: raise RuntimeError('Edoal element <xmlns:relation> required')
+            else: self.rel = Mediator.canonical(rel.text)
             
         def render(self):
             '''
@@ -118,7 +130,7 @@ class Mediator(object):
         def translate(self, data):
             '''
             Translate the data according to the EDOAL alignment from the Correspondence Class
-            - data (string): the data to be translated; this data can represent
+            - data (string): the data to be translated; this data can represent one out of the following
                 1: a sparql query (one of: SELECT, ASK, UPDATE, DESCRIBE)
                 2: a sparql result set
                 3: an RDF triple or RDF graph
@@ -130,18 +142,23 @@ class Mediator(object):
             if self.rel != 'EQ':
                 #TODO: Translate entity expressions LT, GT and ClassConstraints
                 raise NotImplementedError('Only entity expression relations of type "EQ" supported')
-            elif (len(list(self.src.iter())) > 2) or (len(list(self.tgt.iter())) > 2):
+            elif (len(list(self.src.iter())) > 2):
                 raise NotImplementedError('Only simple entity expressions supported')
-            elif (self.src[0].tag != EDOALCLASS) or (self.tgt[0].tag != EDOALCLASS):
-                raise NotImplementedError('Only Class expressions supported')
-            else: pass
+            elif (len(list(self.tgt.iter())) > 2):
+                raise NotImplementedError('Only simple entity expressions supported')
+            elif not ((self.src[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST]) and \
+                    (self.tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
+                raise KeyError('Only edoal entity type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.src[0].tag.lower()))
+            
         
             src = '<'+ list(self.src.iter())[1].get(RDFABOUT) + '>'
             tgt = '<'+ list(self.tgt.iter())[1].get(RDFABOUT) + '>'
             
             r = ParseQuery(data)
             q = r.searchElements(label='iriref', element_type=IRIREF, value=src)
-            q[0].updateWith(tgt)
+            if q == []:
+                warnings.warn('Cannot find {} as "iriref" in query: {}'.format(src, r.render()))
+            else: q[0].updateWith(tgt)
             return r.render()
     
     def __init__(self, edoal):
@@ -202,7 +219,7 @@ class Mediator(object):
 
 #         print('#cells', len(cells))
         if len(cells) == 0:
-            raise RuntimeError('An Edoal alignment requires at least one <xmlns:map> element, but zero found')
+            raise RuntimeError('An Edoal alignment requires at least one <xmlns:map><xmlns:Cell>...</xmlns:Cell></xmlns:map> element, but zero found')
         for el in cells:
             c = self.Correspondence(el)
             self.corrs[c.getName()] = c
