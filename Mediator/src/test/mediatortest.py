@@ -87,7 +87,7 @@ class Test(unittest.TestCase):
             if info or debug >= 1:
                 print()
                 print('=-'*7)
-                print('Mediator tests')
+                print('EDOAL parse tests')
                 print('=-'*7)
             for t in testCases[rule]:
                 if info:
@@ -134,16 +134,16 @@ class Test(unittest.TestCase):
                 print('='*20)
                 
         # Run the actual tests here                
-        if rule == 'MEDIATOR': return testFuncM
+        if rule == 'EDOAL': return testFuncM
         else: return testFuncC
     
     def setUp(self):
         self.testCases = {}
 
         # Mediator tests
-        self.testCases['MEDIATOR'] = []
+        self.testCases['EDOAL'] = []
             
-        self.testCases['MEDIATOR'].append({ 
+        self.testCases['EDOAL'].append({ 
             # Since MEDIATOR testCases do not have sufficient granularity to distinguish Cell Abouts (i.e., MappingRules)
             # it is NOT POSSIBLE to use an Alignment.xml file for BOTH pass AND fail 
             'pass': {'resources/alignPassSimple0.xml':                      # Simple Class-EQ-Class, Prop-EQ-Prop, Reln-EQ-Reln
@@ -181,10 +181,11 @@ class Test(unittest.TestCase):
         self.testCases['SELECT'].append({
             'EDOAL': rdf, 
             'data': [inData, outData],
-            'pass': ['MappingRule_0', 'MappingRule_1'],
-            'fail': [['MappingRule_2', NotImplementedError],
-                    ['MappingRule_3', NotImplementedError],
-                    ['MappingRule_4', NotImplementedError] 
+            'pass': ['MappingRule_0',                                 # Simple C-EQ-C
+                     'MappingRule_1',                                 # Simple P-EQ-P
+                     'MappingRule_2'],                                # Simple R-EQ-R
+            'fail': [['MappingRule_3', NotImplementedError],          # Very complex C-EQ-CARR etc
+                    ['MappingRule_4', NotImplementedError]            # Complex C-EQ-C Boolean operation
                     ]
               }
             )
@@ -196,7 +197,10 @@ class Test(unittest.TestCase):
         self.testCases['SELECT'].append({
             'EDOAL': rdf, 
             'data': [inData, outData],
-            'pass': ['MappingRule_0', 'MappingRule_1', 'MappingRule_2', 'MappingRule_3'],
+            'pass': ['MappingRule_0',                                 # Simple C-EQ-C
+                     'MappingRule_1',                                 # Simple P-EQ-P
+                     'MappingRule_2',                                 # Simple R-EQ-R
+                     'MappingRule_3'],                                # Simple I-EQ-I
             'fail': [['MappingRule_4', KeyError]]
               }
             )
@@ -228,11 +232,11 @@ class Test(unittest.TestCase):
         ''' 
         with self.assertRaises(TypeError):
             Mediator(None) 
-            
+             
         with self.assertRaises(TypeError):
             Mediator("string type") 
-            
-        Test.makeTestFunc('MEDIATOR', self.testCases, info=True, debug=3)()
+             
+        Test.makeTestFunc('EDOAL', self.testCases, info=True, debug=3)()
 
         
 if __name__ == "__main__":

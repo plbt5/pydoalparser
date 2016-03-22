@@ -23,7 +23,7 @@
 		<dc:creator>http://www.scharffe.fr/foaf.rdf</dc:creator>
 		<dc:date>2006/06/07</dc:date>
 		<method>manual</method>
-		<purpose>example</purpose>
+		<purpose>TESTcase: hugely adapted from original wine-vin example</purpose>
 		<level>2EDOAL</level>
 		<type>**</type>
 		<onto1>
@@ -43,6 +43,7 @@
 				</formalism>
 			</Ontology>
 		</onto2>
+		<!--  Following mappings will pass successfully -->
 		<map>
 			<Cell rdf:about="MappingRule_0">
 				<entity1>
@@ -70,15 +71,16 @@
 		<map>
 			<Cell rdf:about="MappingRule_2">
 				<entity1>
-					<edoal:Relation rdf:about="&wine;locatedIn" />
+					<edoal:Relation rdf:about="&wine;VintageYear" />
 				</entity1>
 				<entity2>
-					<edoal:Relation rdf:about="&vin;hasTerroir" />
+					<edoal:Relation rdf:about="&vin;Millesime" />
 				</entity2>
 				<measure rdf:datatype="&xsd;float">1.0</measure>
-				<relation>SubsumedBy</relation>
+				<relation>EQ</relation>
 			</Cell>
 		</map>
+		<!--  Following mappings will FAIL successfully -->
 		<map>
 			<Cell rdf:about="MappingRule_3">
 				<entity1>

@@ -41,11 +41,7 @@ import sys
 #     def __init__(self):
 #         pass
  
-EDOALCLASS = '{http://ns.inria.org/edoal/1.0/#}class'
-EDOALRELN = '{http://ns.inria.org/edoal/1.0/#}relation'
-EDOALPROP = '{http://ns.inria.org/edoal/1.0/#}property'
-EDOALINST = '{http://ns.inria.org/edoal/1.0/#}instance'
-RDFABOUT = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about'
+
 
 ns = {
         'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
@@ -57,6 +53,18 @@ ns = {
 #         'vin': 'http://ontology.deri.org/vin#',
         'edoal': 'http://ns.inria.org/edoal/1.0/#'
     }
+
+ 
+EDOALCLASS = '{'+ ns['edoal'] + '}class'
+EDOALRELN = '{'+ ns['edoal'] + '}relation'
+EDOALPROP = '{'+ ns['edoal'] + '}property'
+EDOALINST = '{'+ ns['edoal'] + '}instance'
+EDOALCAOR = '{'+ ns['edoal'] + '}AttributeOccurenceRestriction'
+EDOALCADR = '{'+ ns['edoal'] + '}AttributeDomainRestriction'
+EDOALCATR = '{'+ ns['edoal'] + '}AttributeTypeRestriction'
+EDOALCAVR = '{'+ ns['edoal'] + '}AttributeValueRestriction'
+RDFABOUT = '{'+ ns['rdf'] + '}about'
+
     
 class Mediator(object):
     '''
@@ -143,23 +151,36 @@ class Mediator(object):
                 #TODO: Translate entity expressions LT, GT and ClassConstraints
                 raise NotImplementedError('Only entity expression relations of type "EQ" supported')
             elif (len(list(self.src.iter())) > 2):
-                raise NotImplementedError('Only simple entity expressions supported')
+                # Classrestriction: <AttributeValueRestriction> onatt comp val </AttributeValueRestriction>
+                if (self.src[0].tag.lower() == EDOALCLASS):
+                    if (self.src[0].get(RDFABOUT) == None):
+                        # Complex Boolean Class Construct found
+                        raise NotImplementedError('Complex Boolean Edoal Class constructs not supported')
+                    else:
+                        # Simple Class Entity found; hand over to the simple entity EQ translation
+                        pass
+                elif (self.src[0].tag.lower() in [EDOALCAOR, EDOALCADR, EDOALCATR, EDOALCAVR]):
+                    # Complex Class Restriction found
+                    
+                    raise NotImplementedError('Complex Class Restriction found, under construction')
+                else: raise NotImplementedError('For complex entity expressions, only class restrictions supported')
+            
             elif (len(list(self.tgt.iter())) > 2):
                 raise NotImplementedError('Only simple entity expressions supported')
             elif not ((self.src[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST]) and \
                     (self.tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
                 raise KeyError('Only edoal entity type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.src[0].tag.lower()))
             
-        
+            # EQ relation for simple entities found. Do translation
             src = '<'+ list(self.src.iter())[1].get(RDFABOUT) + '>'
             tgt = '<'+ list(self.tgt.iter())[1].get(RDFABOUT) + '>'
             
-            r = ParseQuery(data)
-            q = r.searchElements(label='iriref', element_type=IRIREF, value=src)
+            r = parseQuery(data)
+            q = r.searchElements(label=None, element_type=IRIREF, value=src, labeledOnly = False)
             if q == []:
-                warnings.warn('Cannot find {} as "iriref" in query: {}'.format(src, r.render()))
+                warnings.warn('Cannot find {} as "iriref" in query: {}'.format(src, str(r)))
             else: q[0].updateWith(tgt)
-            return r.render()
+            return str(r)
     
     def __init__(self, edoal):
         '''
