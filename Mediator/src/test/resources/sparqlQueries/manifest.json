@@ -1,0 +1,21 @@
+{
+	"manifest": {
+		"mf:name": "manifest01" ,
+		"file": "manifest.ttl" ,
+		"rdfs:comment": "Query Evaluation Tests SPARQL Select"
+	} ,
+	"mf:entries": [ ":test_1" ],
+	":test_1": {
+		"rdf:type": 	"mf:QueryEvaluationTest" ,
+		"mf:name":		"select-query-01" ,
+		"rdfs:comment":	"Basic BGP patterns, including semicolons, comma's and parentheses." ,
+		"mf:action": {
+			"qt:query": "select-query-01.rq" ,
+			"qt:data": "select-data-01.n3" 
+		} ,
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "select-result-pass-01.srj" },
+			{ "rdf:type": "FAIL", "value": "select-result-fail-01.srj" }
+		] 
+	}
+}

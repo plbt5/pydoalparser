@@ -1,0 +1,23 @@
+PREFIX ns:     <http://ds.tno.nl>
+PREFIX foaf:   <http://xmlns.com/foaf/0.1/>
+PREFIX xsd:    <http://www.w3.org/2001/XMLSchema>
+
+SELECT ?p ?t WHERE {
+	{
+		?p		a			foaf:Person ;
+				ns:hasTemp	?t	, 
+                			?k
+	} 
+	?t			rdf:value	?b	.
+	foaf:Person ns:hasTemp	?t	, 
+							?j	; 
+				a			?k	, 
+							?d	.
+	{
+	}
+	FILTER (
+		(	?t > ?a )	&&
+		?b > 37.0 	&& 
+		langMatches(lang(?p), "EN")
+	).
+} 

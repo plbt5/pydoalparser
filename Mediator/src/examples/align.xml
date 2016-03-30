@@ -7,17 +7,17 @@
 ]>
 
 <rdf:RDF xmlns="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
-	xml:base="http://ds.tno.nl/tempC-tempF/" 
 	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
 	xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
 	xmlns:align="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
 	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" 
 	xmlns:dc="http://purl.org/dc/elements/1.1/"
 	xmlns:ex="http://example.org" 
-	xmlns:ontoA="http://tutorial.topbraid.com/ontoA#"
-	xmlns:ontoB="http://tutorial.topbraid.com/ontoB#"
+	xmlns:ontoA="http://ds.tno.nl/ontoA/#"
+	xmlns:ontoB="http://ds.tno.nl/ontoB/#"
 	xmlns:proton="http://proton.semanticweb.org/"
-	xmlns:edoal="http://ns.inria.org/edoal/1.0/#">
+	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
+	xml:base="http://ds.tno.nl/tempC-tempF/" >
 	
 	<Alignment rdf:about="http://ds.tno.nl/tempC-tempF/">
 		<xml>yes</xml>
