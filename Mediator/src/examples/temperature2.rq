@@ -5,7 +5,11 @@ PREFIX xsd:    <http://www.w3.org/2001/XMLSchema>
 SELECT ?p ?t WHERE 
     {
         ?p a foaf:Person .
-        ?p ns:hasTemp ?t .
-         FILTER (  ?t > 37.0 
+        ?p ns:hasTemp ns:TempInC .
+        ?p ns:hasAge ?a .
+        ns:TempInC ns:hasValue ?t.
+         FILTER ( (datatype(?t) = xsd:float) &&
+                     ( ?t > 37.0 ) &&
+                     ( ?a < 37.0 ) 
                  ).
     } 

@@ -5,7 +5,7 @@ Created on 26 feb. 2016
 '''
 
 # from EdoalParser.alignment import Alignment
-from sparqlparser.grammar import *
+from parsertools.parsers.sparqlparser import parseQuery, parser
 from .sparqlTools import Context
 import xml.etree.cElementTree as ET
 import warnings
@@ -13,36 +13,7 @@ from pprint import pprint
 
 from turtle import __stringBody
 import sys
-
-# '''
-# conflictType represents the different types of semantic conflict that can be distinguished:
-# - None:    No conflict
-# - Dinges:    Another conflict, no idea yet
-# '''
-# conflictType = ['None', 'Dinges']
-# #TODO: Specifying the various conflictTypes
-# 
-# class SemanticConflict(object):
-#     '''
-#     An SemanticConflict object will be created during data translation whenever the translation cannot
-#     guarantee the semantic correctness of the translation.  
-#     '''
-#     
-#     def __init__(self):
-#         self.type = {}
-# 
-# class VarBounding(object):
-#     '''
-#     '''
-#     def __init__(self):
-#         pass
-# 
-# class Query(SPARQLElement):
-#     '''
-#     '''
-#     def __init__(self):
-#         pass
- 
+from parsertools.base import ParseStruct
 
 
 ns = {
@@ -58,7 +29,6 @@ ns = {
         'edoal' : 'http://ns.inria.org/edoal/1.0/#'
     }
 
-
 EDOALCLASS = '{'+ ns['edoal'] + '}class'
 EDOALRELN = '{'+ ns['edoal'] + '}relation'
 EDOALPROP = '{'+ ns['edoal'] + '}property'
@@ -73,7 +43,16 @@ EDOALAPPLY = '{'+ ns['edoal'] + '}Apply'
 EDOALOPRTR = '{'+ ns['edoal'] + '}operator'
 
 
-    
+
+class EntityExpression():
+    def __init__(self, entity, entity_type):
+        assert isinstance(entity, str) and entity_type in [EDOALPROP]
+        self.entity = entity
+        self.entity_type = entity_type
+        
+    def __str__(self):
+        return self.entity + ' (' + self.entity_type +')'
+ 
 class Mediator(object):
     '''
     The Mediator class performs translations of sparql queries or sparql variable bindings. This translation is based
@@ -93,7 +72,36 @@ class Mediator(object):
         else: raise NotImplementedError('Entity expression relation {} not recognised'.format(rel))
              
     class Correspondence():
+        '''
+        A Correspondence specifies a single mapping from an entity expression in ontology A to a corresponding
+        entity expression in ontology B. Each correspondence provides for a transformation of sparql data that 
+        is expressed in terms of ontology A, into its semantic equivalent in terms of ontology B.
+        '''
    
+        def makeTransform(self, condition, operands, operation):
+            '''
+            Factory to create a transformation function.  
+            '''
+            def transform(self, value_logic_node):
+                '''
+                Transform a sparql ValueLogic node according to the specified operation, but only when the specified condition is met. 
+                Otherwise, return None
+                '''
+                assert isinstance(value_logic_node, ParseStruct)
+                if condition(value_logic_node):
+                    nodes = value_logic_node.searchElements(element_type=operands)
+                    if nodes == []: raise RuntimeError("Cannot find the operand [{}] to transform")
+                    for node in nodes:
+                        for itemValue in node.getItems():
+                            if operands in [parser.DECIMAL, parser.INTEGER, parser.DOUBLE]:
+                                value = float(itemValue)
+                            transfdValue = operation(value)
+                            node.updateWith(str(transfdValue))
+                    return value_logic_node
+                else: return None
+                
+            return transform
+                
         def __init__(self, el):
             '''
             Create a new Correspondence by copying the children from an EDOAL cell into the object's fields. 
@@ -101,58 +109,32 @@ class Mediator(object):
             Prerequisite: this EDOAL cell should contain the elements: <xmlns:entity1>, <xmlns:entity2>, and <xmlns:relation>
             
             Returns an object with fields:
-            - .nme: (string) : the name of the correspondence (reification of rdf:about in <Cell>)
-            - .src: (elementtree Element) : the source edoalEntity expression
-            - .tgt: (elementtree Element) : the target edoalEntity expression
-            - .rel: (string) : the EDOAL edoalEntity expression relation
-            - .tfn: []       : List of translations for individuals of this source
-                * {'direction'} : direction if this transformation
-                * {'entity1'}   : (elementtree Element) : transformation details
-                * {'entity2'}   : (elementtree Element) : transformation details
+            - .name: (string)           : the name of the correspondence (reification of rdf:about in <Cell>)
+            - .src: (EntityExpression) : the source EntityExpression expression
+            - .tgt: (EntityExpression) : the target EntityExpression expression
+            - .rel: (string)           : the EDOAL EntityExpression expression relation
+            - .tfs: [](transform)      : (optional) List of transformations on ValueLogics 
+                
             ''' 
-            self.nme = el.get(RDFABOUT)
-            if self.nme == None: raise ValueError('XML attribute {} expected in element {}'.format(RDFABOUT, el.tag))
             
-            self.src = el.find('xmlns:entity1', ns)
-            if self.src == None: raise RuntimeError('Edoal element <xmlns:entity1> required')
-            elif not (self.src[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST]):
-                raise NotImplementedError('Only edoal edoalEntity type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.src["edoalEntity"]))
+            self.name = 'Mapping_Rule_0'
+            self.src = EntityExpression('{http://ds.tno.nl/ontoA/}hasTemp', EDOALPROP)
+            self.tgt = EntityExpression('{http://ds.tno.nl/ontoB/}hasT', EDOALPROP)
+#             self.rel = canonical('equivalence')
+            self.rel = 'EQ'
+            self.tfs = []
+            self.tfs.append(self.__class__.makeTransform(self, condition=lambda x: True, operands=(parser.DECIMAL), operation=lambda x: round(x/5 * 9 + 32,2) ))
 
-            self.tgt = el.find('xmlns:entity2', ns)
-            if self.tgt == None: raise RuntimeError('Edoal element <xmlns:entity2> required')
-            elif not ((self.tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
-                raise NotImplementedError('Only edoal edoalEntity type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.tgt[0].tag.lower()))
-
-            rel = el.find('xmlns:relation', ns)
-            if rel == None: raise RuntimeError('Edoal element <xmlns:relation> required')
-            else: self.rel = Mediator.canonical(rel.text)
-            
-            self.tfn = []
-            tfns = el.findall('xmlns:transformation', ns)
-            if tfns != None: # This part of the alignment is optional.
-                for tfn in tfns:
-                    Tfn = tfn.find('xmlns:Transformation', ns)
-                    if Tfn == None: raise RuntimeError('Edoal element <xmlns:Transformation> expected')
-                    self.tfn.append({'direction': Tfn.get(EDOALDIRECTION), 'entity1': Tfn.find('xmlns:entity1', ns) , 'entity2': Tfn.find('xmlns:entity2', ns)})
             
         def render(self):
             '''
                 Produce a rendering of the Correspondence as EDOAL Map
             '''
             #TODO: Produce a rendering of the Correspondence in EDOAL XML
-            e1 = ''
-            e2 = ''
-            t = ''
-            for el in self.src.iter():
-                e1 += '\t' + el.tag + str(el.attrib) + '\n'
-            for el in self.tgt.iter():
-                e2 += '\t' + el.tag + str(el.attrib) + '\n'
-            for el in self.tfn:
-                t += '\t' + str(el['direction']) + '\n\tentity1: ' + str(el['entity1']) + '\n\tentity2: ' + str(el['entity2']) + '\n'
-            return self.getName() + '\n>>src:' + e1 + '>>tgt:' + e2 + '>>rel:' + self.rel + '\n>>tfn:' + t
+            return self.getName() + ': '+ self.src +' --['+ self.rel +']--> '+ self.tgt 
         
         def getName(self):
-            return self.nme
+            return self.name
         
         def __str__(self):
             return self.getName()
@@ -169,75 +151,39 @@ class Mediator(object):
             As of this moment, only data of type 1 is supported, and even then only SELECT
             '''
             
-            print(self.render())
-            if self.rel != 'EQ':
-                #TODO: Translate entity expressions LT, GT and ClassConstraints
-                raise NotImplementedError('Only entity expression relations of type "EQ" supported')
-            elif (len(list(self.src.iter())) > 2):
-                # Classrestriction: <AttributeValueRestriction> onatt comp val </AttributeValueRestriction>
-                
-                if (self.src[0].tag.lower() == EDOALCLASS):
-                    if (self.src[0].get(RDFABOUT) == None):
-                        # Complex Boolean Class Construct found
-                        raise NotImplementedError('Complex Boolean Edoal Class constructs not supported')
-                    else:
-                        # Simple Class Entity found; hand over to the simple entity EQ translation
-                        print("Implementation required to translate {}".format(self.src[0].tag))
-                        
-                elif (self.src[0].tag.lower() in [EDOALCAOR, EDOALCADR, EDOALCATR, EDOALCAVR]):
-                    # Complex Class Restriction found
-                    
-                    raise NotImplementedError('Complex Class Restriction found, under construction')
-                else: raise NotImplementedError('For complex entity expressions, only class restrictions supported')
-            
-            elif (len(list(self.tgt.iter())) > 2):
-                raise NotImplementedError('Only simple entity2 expressions supported')
-            elif not ((self.src[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST]) and \
-                    (self.tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
-                raise KeyError('Only edoal entity type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.src[0].tag.lower()))
-            
-            # EQ relation for simple entities found. 
-            # Since this is a simple entity expression, get name of src (entity1) and tgt (entity2)
-            src = list(self.src.iter())[1].get(RDFABOUT)
-            tgt = list(self.tgt.iter())[1].get(RDFABOUT)
-#             at = AssociationGraph(edoalEntity=src, sparqlData=data)
-#             print("Association graph has {} statements:".format(len(at)))
-#             print ((at.serialize(format='turtle')).decode("utf-8"))
-            
             # Determine the sparql context for the src, i.e., in the parsed sparql tree, determine:
             # the Node(s), their binding(s) and their constraining expression(s)
             rq = parseQuery(data)
-            context = Context(edoalEntity=src, sparqlData=data)
+            context = Context(entity_expression=self.src, sparqlData=data)
             
-            print(context.render())
-            print("translating {} ---> {}".format(src, tgt))
+            context.render()
+            print("translating {} ---> {}".format(self.src, self.tgt))
 
             # Change the src into the tgt. 
             # 1 - First the concepts in the Query Pattern part of the query.
             #     The src can occur in multiple BGP's, and each qpNode represents a distinct BGP
-            for qp in context.qpNodes:
-                print("tgt:", tgt)
+            for qpt in context.qpTriples:
+                print("tgt:", self.tgt)
                 #TODO: Namespace problem, resolve
-                tgt = 'ToDoNS:'+tgt.split("#")[-1]
-                print("src:", str(qp.about))
-                print("tgt:", tgt)
-                qp.about.updateWith(tgt)
+                uri, tag = self.tgt.entity[1:].split("}")
+                tgt = 'ToDoNS:'+tag
+                print("src:", str(qpt.represents))
+                print("tgt:", self.tgt)
+                for qpn in qpt.qpNodes:
+                    qpn.about.updateWith(tgt)
+            
             # 2 - Then transform the constraints from the Query Modification part of the query.
-            # 2.1 - Determine the edoal spec of the transformation; ASSUME simple transformation
-            for transformation in self.tfn:
-                for element in list(transformation['entity1']):    # TODO: better parser for EDOAL transformations/values et.al.
-                    if element.tag == EDOALAPPLY:
-                        operator = element.get(EDOALOPRTR)
-                        value = operator.find('edoal:arguments/edoal:Property', ns).get(RDFABOUT)
-                    else: warnings.warn("Do not yet support other transformation specifications than <{}>".format(EDOALAPPLY))
+
+                
             #     The src can be bound to more than one variable that can have more constraints.
             #     The qmNodes in the context is a dictionary for which the src indexes a list of variables. 
             #     Each variable is represented by a qmNode; each constraint by a valueLogic.
             
-            for key in context.qmNodes:
-                for qm in context.qmNodes[key]:
-                    for vl in qm.valueLogic:
-                        vl['operand'].updateWith('100.0')
+            for var in context.constraints:
+                for vc in context.constraints[var]:
+                    for vl in vc.valueLogics:
+                        for tf in self.tfs:
+                            tf(self, value_logic_node = vl)
             
             context.parsedQuery.render()
             return True
@@ -312,7 +258,7 @@ class Mediator(object):
 
     def __len__(self):
         '''
-        Calulates the length of the Mediator as the amount of Correspondences it contains.
+        Calculates the length of the Mediator as the amount of Correspondences it contains.
         '''
         return len(self.corrs)     
     
