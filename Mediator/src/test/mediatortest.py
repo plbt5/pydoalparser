@@ -5,7 +5,6 @@ Created on 26 feb. 2016
 '''
 import unittest
 from mediator.mediator import Mediator
-from sparqlparser.grammar import ParseInfo
 import warnings
 
 import xml.etree.cElementTree as etree

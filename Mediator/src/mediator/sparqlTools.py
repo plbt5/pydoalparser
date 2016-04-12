@@ -29,15 +29,15 @@ This module provides tools to relate the various elements of a query to each oth
 '''
 
 from parsertools.parsers.sparqlparser import parseQuery, parser
+from parsertools.base import ParseStruct
 # from .mediator import EntityExpression
 from builtins import str
 from distutils.dist import warnings
-from rdflib import Namespace, URIRef, BNode, Literal
-from lib2to3.pytree import Node
-from parsertools.base import ParseStruct
+from rdflib import Graph, Namespace, URIRef, BNode, Literal
+from utilities.namespaces import NSManager
 
 
-
+    
         
 
 class Context():
@@ -151,25 +151,36 @@ class Context():
                     str(self.associates[URIRef(Context.mns[Context.uris['object']])]) + ' )'
                 return(result)
             
-        def __init__(self, entity_expression = None, sparql_tree=None):
+        def __init__(self, *, entity_expression, sparql_tree, nsMgr):
 #             assert isinstance(entity_expression, EntityExpression) and isinstance(sparql_tree, ParseStruct)
             self.represents = '' # (EntityExpression) the EDOAL entity (Class, Property, Relation, Instance) name;
                                  # This is in fact unnecessary because this is already stored in the higher Context class
-            self.qpNodes = []    # List of (QPNode)s, i.e., implicit Query Pattern nodes that address the Entity
+            self.qpNodes = []    # List of (QPNode)s, i.e., implicit Query Pattern nodes that address the Entity Expression
+            self.pfdNodes = {}   # Dict of (ParseStruct)s indexed by prefix : the PrefixDecl nodes that this entity relates to
             self.sparqlTree = '' # The sparql tree that this class uses to relate to
             
+            assert entity_expression.__class__.__name__ == 'EntityExpression' and isinstance(nsMgr, NSManager) and isinstance(sparql_tree, ParseStruct)
             # Now find the atom of the main Node, i.e., what this is all about, and store it
             if entity_expression == None or sparql_tree == None:
                 raise RuntimeError("Require parsed sparql tree and sparql node, and edoal entity expression.")
             self.represents = entity_expression
             self.sparqlTree = sparql_tree
+            # Now find the [PrefixDecl] nodes
+            prefixDecls = sparql_tree.searchElements(element_type=parser.PrefixDecl)
+            _, src_iriref, _ = nsMgr.split(entity_expression.entity)
+            for prefixDecl in prefixDecls:
+                ns_prefix, ns_iriref = str(prefixDecl.prefix)[:-1], str(prefixDecl.namespace)[1:-1]
+                if ns_iriref == src_iriref: 
+                    self.pfdNodes[ns_prefix] = {}
+                    self.pfdNodes[ns_prefix]['ns_iriref'] = ns_iriref
+                    self.pfdNodes[ns_prefix]['node'] = prefixDecl
         
         def addNode(self, query_node=None):
             atom = query_node.descend()
             if atom.isAtom():
                 theNode = self.QPNode(about=atom)
                 self.qpNodes.append(theNode)
-                print("> QP [{}] represents <{}> as:".format(str(atom), self.represents))
+#                 print("> QP [{}] represents <{}> as:".format(str(atom), self.represents))
                 # HERE WE CAN DO A TRANSLATION OF THE NODE!!! 
             #TODO: Recursive processing of branch when dumped into non-leaf branch 
             else: warnings.warn("Not Implemented Yet: recursive processing when stepped in non-leaf branch ([{}])".format(atom))
@@ -186,16 +197,14 @@ class Context():
                 elif nType == 'ObjectListPath':
                     # This Node represents an object
                     bgpPos = 'object'
-                    print('[{}] determined as <{}>'.format(str(p),bgpPos))
+#                     print('[{}] determined as <{}>'.format(str(p),bgpPos))
                     theNode.setType(bgpPos)
-#                     print("Found <{}>, type <{}>".format(p, nType))
                     # Continue, and find binding with its subject
                 elif nType == 'VerbPath':
                     # This Node represents a property
                     bgpPos = 'property'
                     theNode.setType(bgpPos)
-                    print('[{}] determined as <{}>'.format(str(p),bgpPos))
-#                     print("Found <{}>, type <{}>".format(p, nType))
+#                     print('[{}] determined as <{}>'.format(str(p),bgpPos))
                     # Continue, and find binding with its subject and object
                 elif nType == 'TriplesSameSubjectPath':
                     if bgpPos == None:
@@ -203,8 +212,7 @@ class Context():
                         # and its children represent the rest of the triple.
                         bgpPos = 'subject'
                         theNode.setType(bgpPos)    
-                        print('[{}] determined as <{}>'.format(str(p),bgpPos))
-#                         print("Found <{}> (type [{}]) as (S, -, -)".format(p, nType))
+#                         print('[{}] determined as <{}>'.format(str(p),bgpPos))
                         # Now process the children, except itself, to form the triple
                         for plp in p.getChildren():
                             if type(plp).__name__ == 'VarOrTerm':
@@ -384,7 +392,7 @@ class Context():
             # Find the [Var]-node as part of a [ValueLogical] in this part of the tree
             nodeType = parser.Var   
             for fe in filterElements:
-                print("Searching for <{}> as type <{}> in {}: ".format(sparqle_var, nodeType, fe))
+#                 print("Searching for <{}> as type <{}> in {}: ".format(sparqle_var, nodeType, fe))
                 varElements = fe.searchElements(element_type=nodeType, value=sparqle_var)
                 if varElements == []:
                     warnings.warn('Cannot find <{}> as part of a [{}] expression in <{}>'.format(sparqle_var, nodeType, fe))
@@ -425,9 +433,9 @@ class Context():
     #                         elif pType == 'ValueLogical':
     #                             print("<{}> is a [{}] with length <{}>".format(p, pType, len(p)))
     #                             pass
-                if len(self.valueLogics) > 0:
-                    self.render()
-                else: print('No applicable Query Modifiers found for <{}>'.format(sparqle_var))
+#                 if len(self.valueLogics) > 0:
+#                     self.render()
+#                 else: print('No applicable Query Modifiers found for <{}>'.format(sparqle_var))
 
         def __str__(self):
             result = '( '
@@ -439,12 +447,12 @@ class Context():
             print('constraints: \n' + self.__str__())
 
 
-    def __init__(self, entity_expression=None, sparqlData=None, *, entity_type=parser.iri):
+    def __init__(self, entity_type=parser.iri, *, entity_expression, sparqlTree, nsMgr ):
         '''
         Generate the sparql context that is associated with the EntityExpression. If no entity_type is given, assume an IRI type.
         Returns the context, with attributes:
         * entity       : (mediator.Correspondence.EntityExpression) the subject EntityExpression
-        * sparqlData   : the parsed sparql-query-tree
+        * sparqlTree   : (ParseStruct) the parsed sparql-query-tree
         * qpTriples    : the qpNodes from the sparql Query Pattern that are referred to in the EntityExpression
         * constraints   : the qpNodes from the sparql Query Pattern FILTER that constrain the variables bound in the qpTriples 
         
@@ -452,27 +460,26 @@ class Context():
         self.entity = ''         # (EntityExpression) The EDOAL entity (Class, Property, Relation, Instance) name this context is about;
         self.parsedQuery = ''    # (parser.grammar.ParseInfo) The parsed query that is to be mediated
         self.qpTriples = []      # List of (QueryPatternTriple)s, representing the contextualised triples that are addressing the EDOAL entity (self.about)
-        self.constraints = {}     # Dictionary, indexed by the bound variables that occur in the qpTriples, as contextualised Filters.
+        self.constraints = {}    # Dictionary, indexed by the bound variables that occur in the qpTriples, as contextualised Filters.
+        self.nsMgr = None        # (namespaces.NSManager): the current nsMgr that can resolve any namespace issues of this mediator 
         
-#         assert isinstance(entity_expression, EntityExpression) and isinstance(sparqlData, ParseStruct)
-        if (entity_expression==None or sparqlData==None):
-            raise ValueError("Edoal entity and sparqlData required")
-        
+#         assert isinstance(entity_expression, Mediator.EntityExpression) and isinstance(sparqlTree, ParseStruct)
+        assert isinstance(sparqlTree, ParseStruct) and entity_expression.__class__.__name__ == 'EntityExpression' and isinstance(nsMgr, NSManager)
+
+        self.nsMgr = nsMgr
         self.entity = entity_expression
         #TODO: process other sparqlData than sparql query, i.e., rdf triples or graph, and sparql result sets
-        self.parsedQuery = parseQuery(sparqlData)
+        self.parsedQuery = sparqlTree
         if self.parsedQuery == []:
             raise RuntimeError("Cannot parse the query sparqlData")
         
-        self.parsedQuery.render()
-        #TODO: get the namespace from the sparqle query, don't assume 'ns:'
-        uri, tag = entity_expression.entity[1:].split("}")
-        val = 'ns:'+tag
+        eePf, eeIri, eeTag = self.nsMgr.split(entity_expression.entity)
+        src_qname = eePf + ':' + eeTag
         
         # 1: Find the qpNodes for which the context is to be build, matching the Entity1 Name and its Type
-        srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value=val)
+        srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value=src_qname)
         if srcNodes == []: 
-            raise RuntimeError("Cannot find element <{}> of type <{}> in sparqlData".format(val, entity_type))
+            raise RuntimeError("Cannot find element <{}> of type <{}> in sparqlData".format(src_qname, entity_type))
         
         # 2: Build the context
         self.qpTriples = []         # List of (QPNode)s that address the edoal entity.
@@ -492,21 +499,21 @@ class Context():
         # 2.1.2: For each node, find the qpTriples
         for qrySrcNode in srcNodes:
             # Find and store the QueryPatternTriple of the main Node
-            print("Building context for <{}>".format(qrySrcNode))
-            print('='*30)
+#             print("Building context for <{}>".format(qrySrcNode))
+#             print('='*30)
             #TODO: Probably rq is too high in the tree - consider a lower node such as [WhereClause] (i.e., qryPatterns) or [GroupGraphPattern] 
-            qpt = self.QueryPatternTriple(entity_expression=entity_expression, sparql_tree=self.parsedQuery)
+            qpt = self.QueryPatternTriple(entity_expression=entity_expression, sparql_tree=self.parsedQuery, nsMgr=self.nsMgr)
             qpt.addNode(qrySrcNode)
             self.qpTriples.append(qpt)
-            print("QP triple(s) determined: \n\t", str(qpt))
-            print("Vars that are bound by these: ")
-            for n in qpt.qpNodes:
-                for b in n.binds:
-                    print("\t<{}>".format(b))
-                print("\n")
+#             print("QP triple(s) determined: \n\t", str(qpt))
+#             print("Vars that are bound by these: ")
+#             for n in qpt.qpNodes:
+#                 for b in n.binds:
+#                     print("\t<{}>".format(b))
+#                 print("\n")
         
         # 2.2: Next, build the Query Modifiers that address the variables that are bound by the considered Query Pattern
-        print('-+'*30)
+#         print('-+'*30)
         #TODO: We assume only one [WhereClause] (hence, qryPatterns[0])  
         # 2.2.1: Select the Query Modifiers top node in this Select Clause
         
@@ -523,8 +530,8 @@ class Context():
                 for var in qpNode.binds:
                     # Find the ValueLogicNode that addresses this variable
                     self.constraints[str(var)] = []
-                    print("Elaborating on var <{}>".format(str(var)))
-                    print('='*30)
+#                     print("Elaborating on var <{}>".format(str(var)))
+#                     print('='*30)
                     # 3 - determine and store its value logics
                     # Cycle over every FILTER subtree
                     for filter in filterTop:
@@ -548,6 +555,6 @@ class Context():
             
     def getSparqlElements(self):
         result = []
-        print("Searching for sparql elements that are associated with <{}>".format(self.entity))
+        print("NOT IMPLEMENTED: Searching for sparql elements that are associated with <{}>".format(self.entity))
         return(result)
   
