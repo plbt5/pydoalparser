@@ -30,6 +30,8 @@ This module provides tools to relate the various elements of a query to each oth
 
 from parsertools.parsers.sparqlparser import parseQuery, parser
 from parsertools.base import ParseStruct
+
+#TODO: ParseStruct wijzigen naar SPARQLStruct from parsertools.parsers.sparqlparser
 # from .mediator import EntityExpression
 from builtins import str
 from distutils.dist import warnings
@@ -63,10 +65,15 @@ class Context():
             }
 
 
-    class QueryPatternTriple():
+    class QueryPatternTripleAssociation():
         
         
-        class QPNode():
+        class QPTripleRefs():
+            '''
+            A QPTripleRefs contains the association between one Correspondence of an Alignment, and the sparql tree. From the latter,
+            it contains (i) the triples that are to be translated, (ii) the position of the entity in question in the triple, and (iii) the
+            variables that are bound in this triples.
+            '''
             
             def __init__(self, about=None):
                 self.about = ''      # (ParseInfo) the atomic node in the sparql tree representing the node
@@ -75,11 +82,11 @@ class Context():
                 self.associates = {} # (Dict(uri, ParseInfo)) the (s,p,o) triple, each element being a QPNodeother two qpNodes in the triple
                 self.partOfRDF = ''  #TODO: The RDF Triple Pattern (s,p,o) (https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#defn_TriplePattern)
                                      #     that this node is part of (created)
-                if about == None: raise RuntimeError("Cannot create QPNode from None")
+                if about == None: raise RuntimeError("Cannot create QPTripleRefs from None")
                 atom = about.descend()
                 if atom.isAtom():
                     self.about = atom
-                else: raise NotImplementedError("Creating QPNode from non-atom node ({}) is not implemented, and considered bad practice.".format(atom))
+                else: raise NotImplementedError("Creating QPTripleRefs from non-atom node ({}) is not implemented, and considered bad practice.".format(atom))
             
             def setType(self, bgp_type=None):
                 self.type = URIRef(Context.mns[Context.uris[bgp_type]])
@@ -87,12 +94,12 @@ class Context():
                 
             def addAssociate(self, bgp_type=None, assoc_node=None):
                 '''
-                1 - This method adds to its subject QPNode this (associated) node that is part of the QPNode's BGP (s,p,o). To that end it will find 
+                1 - This method adds to its subject QPTripleRefs this (associated) node that is part of the QPTripleRefs's BGP (s,p,o). To that end it will find 
                 the terminal or atom node in this branch, and raise an error when there are more branches down the tree. 
                 2 - In conjunction to this, it also checks whether the associated node represents a sparql variable. If so, it will add the 
-                variable to the binding of its subject QPNode.
+                variable to the binding of its subject QPTripleRefs.
                 3 - TODO: when the BGP becomes complete after this last addition, it will generate an RDF triple from it and store it in its
-                subject QPNode (not a triple store).
+                subject QPTripleRefs (not a triple store).
                 Input: 
                 * assoc_node:    The associated node, which is considered to be on a tree vertice that has no other branches. The method will throw a Runtime error
                                 when there are branches found lower in the tree.
@@ -123,7 +130,7 @@ class Context():
                 
 #                 print('[{}] determined as <{}> associate to <{}>'.format(str(assoc_node),uri,str(self.about)))
 
-                # Lastly, generate an RDF triple and store it in its subject QPNode
+                # Lastly, generate an RDF triple and store it in its subject QPTripleRefs
                 if len(self.associates) == 3:
                     #TODO: create three RDF Terms (each as Literal, URIRef or BNode), and formulate & store it as statement
                     self.partOfRDF = (URIRef(Context.mns[Context.uris['subject']]),URIRef(Context.mns[Context.uris['property']]),URIRef(Context.mns[Context.uris['object']]))
@@ -155,7 +162,7 @@ class Context():
 #             assert isinstance(entity_expression, EntityExpression) and isinstance(sparql_tree, ParseStruct)
             self.represents = '' # (EntityExpression) the EDOAL entity (Class, Property, Relation, Instance) name;
                                  # This is in fact unnecessary because this is already stored in the higher Context class
-            self.qpNodes = []    # List of (QPNode)s, i.e., implicit Query Pattern nodes that address the Entity Expression
+            self.qpNodes = []    # List of (QPTripleRefs)s, i.e., implicit Query Pattern nodes that address the Entity Expression
             self.pfdNodes = {}   # Dict of (ParseStruct)s indexed by prefix : the PrefixDecl nodes that this entity relates to
             self.sparqlTree = '' # The sparql tree that this class uses to relate to
             
@@ -166,6 +173,7 @@ class Context():
             self.represents = entity_expression
             self.sparqlTree = sparql_tree
             # Now find the [PrefixDecl] nodes
+            #TODO: Remove this after refactoring to locally valid namespace expansion etc. in SPARQLStruct
             prefixDecls = sparql_tree.searchElements(element_type=parser.PrefixDecl)
             _, src_iriref, _ = nsMgr.split(entity_expression.entity)
             for prefixDecl in prefixDecls:
@@ -175,7 +183,8 @@ class Context():
                     self.pfdNodes[ns_prefix]['ns_iriref'] = ns_iriref
                     self.pfdNodes[ns_prefix]['node'] = prefixDecl
         
-        def addNode(self, query_node=None):
+        def addQPTRef(self, query_node=None):
+            assert isinstance(query_node, ParseStruct)
             atom = query_node.descend()
             if atom.isAtom():
                 theNode = self.QPNode(about=atom)
@@ -307,10 +316,14 @@ class Context():
                     break
                 else: warnings.warn("Unexpectedly found <{}> as ancestor to <{}>. This might be valid, but requires further study. All hell will break loose?!".format(nType, p))
     
-        def getNode(self, about):
+        def getQPTRef(self, about):
+            refs = []
             for n in self.qpNodes:
-                if n.about == about: return(n)
-            return (None)
+                if n.about == about:
+                    refs.append(n)
+            if len(refs) == 1: return refs[0]
+            assert len(refs) == 0, "Did not expect more than one matches for {}".format(about)
+            return None
                    
         def __str__(self):
             result = ''
@@ -379,63 +392,64 @@ class Context():
 
         def __init__(self, sparql_tree, sparqle_var):
             #TODO: Consider the necessity of the two object variables boundVar & entity
-            self.boundVar = ''       # (String) the name of the [Var] that has been bounded in the QueryPatternTriple; Necessary?? 
+            self.boundVar = ''       # (String) the name of the [Var] that has been bounded in the QueryPatternTripleAssociation; Necessary?? 
             self.entity = ''         # (String) the entity expression that this var has been bound to
             self.valueLogics = []    # list of (ValueLogicNode)s, each of them formulating one single constraint, e.g., (?var > DECIMAL)
             
             if sparql_tree == None or sparqle_var == None:
                 raise RuntimeError("Both parsed sparql tree and sparql variable required.")
             filterElements = sparql_tree.searchElements(element_type=parser.Filter)
+            assert len(filterElements) > 1, "Do not support more than one FILTER clauses in SPARQL (yet, please implement me)"
             if filterElements == []:
-                raise NotImplementedError('Cannot find [FILTER] node in the sparql tree; constraint other than type <Filter> not yet implemented')
-            
-            # Find the [Var]-node as part of a [ValueLogical] in this part of the tree
-            nodeType = parser.Var   
-            for fe in filterElements:
-#                 print("Searching for <{}> as type <{}> in {}: ".format(sparqle_var, nodeType, fe))
-                varElements = fe.searchElements(element_type=nodeType, value=sparqle_var)
-                if varElements == []:
-                    warnings.warn('Cannot find <{}> as part of a [{}] expression in <{}>'.format(sparqle_var, nodeType, fe))
-                else:
-                    self.boundVar = sparqle_var
-                    for v in varElements:
-    #                     print("Elaborating on valueLogic: ", v)
-                        pp = v.getAncestors()
-                        topOfBranch = None
-                        operand = None
-                        operation = None
-                        varFirst = None
-                        for p in pp:
-                            pType = type(p).__name__
-                            children = p.getChildren()
-                            if len(children) == 1:
-                                # This is ancestor is not a branching node. Skip to the next ancestor but remember this node that becomes, eventually,
-                                # the top node of this branch
-                                topOfBranch = p
-#                             print("<{}> is a [{}]".format(p, pType))
-                            elif pType == 'BuiltInCall':
-                                warnings.warn("Ignoring constraint on [{}]: not yet implemented".format(p))
-                                break
-                            elif pType == 'RelationalExpression':
-#                                 print('Build [{}]'.format(pType))
-                                #TODO: Add the possibility for chained variables, i.e., [?t > ?v]
-                                self.valueLogics.append(p)
-                                break
-#                             elif pType == 'ConditionalAndExpression':
-#                                 for c in children:
-#                                     print(">>\t<{}> is a [{}]".format(c, type(c).__name__))
-#                             else: 
-#                                 for c in children:
-#                                     print(">>\t<{}> is a [{}]".format(c, type(c).__name__))
-                            else: raise NotImplementedError('Found [{}] ({}) as ancestor to [{}]; this needs further study...'.format(p,pType,v))
-    #                         if pType == 'RelationalExpression':
-    #                             pass
-    #                         elif pType == 'ValueLogical':
-    #                             print("<{}> is a [{}] with length <{}>".format(p, pType, len(p)))
-    #                             pass
-#                 if len(self.valueLogics) > 0:
-#                     self.render()
-#                 else: print('No applicable Query Modifiers found for <{}>'.format(sparqle_var))
+                warnings.warn('Cannot find [FILTER] node in the sparql tree; constraint other than type <Filter> not yet implemented')
+            else:
+                # Find the [Var]-node as part of a [ValueLogical] in this part of the tree
+                nodeType = parser.Var   
+                for fe in filterElements:
+    #                 print("Searching for <{}> as type <{}> in {}: ".format(sparqle_var, nodeType, fe))
+                    varElements = fe.searchElements(element_type=nodeType, value=sparqle_var)
+                    if varElements == []:
+                        warnings.warn('Cannot find <{}> as part of a [{}] expression in <{}>'.format(sparqle_var, nodeType, fe))
+                    else:
+                        self.boundVar = sparqle_var
+                        for v in varElements:
+        #                     print("Elaborating on valueLogic: ", v)
+                            pp = v.getAncestors()
+                            topOfBranch = None
+                            operand = None
+                            operation = None
+                            varFirst = None
+                            for p in pp:
+                                pType = type(p).__name__
+                                children = p.getChildren()
+                                if len(children) == 1:
+                                    # This is ancestor is not a branching node. Skip to the next ancestor but remember this node that becomes, eventually,
+                                    # the top node of this branch
+                                    topOfBranch = p
+    #                             print("<{}> is a [{}]".format(p, pType))
+                                elif pType == 'BuiltInCall':
+                                    warnings.warn("Ignoring constraint on [{}]: not yet implemented".format(p))
+                                    break
+                                elif pType == 'RelationalExpression':
+    #                                 print('Build [{}]'.format(pType))
+                                    #TODO: Add the possibility for chained variables, i.e., [?t > ?v]
+                                    self.valueLogics.append(p)
+                                    break
+    #                             elif pType == 'ConditionalAndExpression':
+    #                                 for c in children:
+    #                                     print(">>\t<{}> is a [{}]".format(c, type(c).__name__))
+    #                             else: 
+    #                                 for c in children:
+    #                                     print(">>\t<{}> is a [{}]".format(c, type(c).__name__))
+                                else: raise NotImplementedError('Found [{}] ({}) as ancestor to [{}]; this needs further study...'.format(p,pType,v))
+        #                         if pType == 'RelationalExpression':
+        #                             pass
+        #                         elif pType == 'ValueLogical':
+        #                             print("<{}> is a [{}] with length <{}>".format(p, pType, len(p)))
+        #                             pass
+    #                 if len(self.valueLogics) > 0:
+    #                     self.render()
+    #                 else: print('No applicable Query Modifiers found for <{}>'.format(sparqle_var))
 
         def __str__(self):
             result = '( '
@@ -459,7 +473,7 @@ class Context():
         '''
         self.entity = ''         # (EntityExpression) The EDOAL entity (Class, Property, Relation, Instance) name this context is about;
         self.parsedQuery = ''    # (parser.grammar.ParseInfo) The parsed query that is to be mediated
-        self.qpTriples = []      # List of (QueryPatternTriple)s, representing the contextualised triples that are addressing the EDOAL entity (self.about)
+        self.qpTriples = []      # List of (QueryPatternTripleAssociation)s, representing the contextualised triples that are addressing the EDOAL entity (self.about)
         self.constraints = {}    # Dictionary, indexed by the bound variables that occur in the qpTriples, as contextualised Filters.
         self.nsMgr = None        # (namespaces.NSManager): the current nsMgr that can resolve any namespace issues of this mediator 
         
@@ -479,10 +493,10 @@ class Context():
         # 1: Find the qpNodes for which the context is to be build, matching the Entity1 Name and its Type
         srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value=src_qname)
         if srcNodes == []: 
-            raise RuntimeError("Cannot find element <{}> of type <{}> in sparqlData".format(src_qname, entity_type))
+            raise RuntimeError("Cannot find element <{}> of type {} in sparqlData".format(src_qname, entity_type))
         
         # 2: Build the context
-        self.qpTriples = []         # List of (QPNode)s that address the edoal entity.
+        self.qpTriples = []         # List of (QPTripleRefs)s that address the edoal entity.
 #         self.qmNodes = {}           # a dictionary, indexed by the qp.about, i.e., the name of the EntityExpression, of lists of constraints 
                                     # that appear in the Query Modifiers clause, each list indexed by the variable name that is bound
         # 2.1: First build the Query Pattern Triples
@@ -498,12 +512,12 @@ class Context():
             
         # 2.1.2: For each node, find the qpTriples
         for qrySrcNode in srcNodes:
-            # Find and store the QueryPatternTriple of the main Node
+            # Find and store the QueryPatternTripleAssociation of the main Node
 #             print("Building context for <{}>".format(qrySrcNode))
 #             print('='*30)
             #TODO: Probably rq is too high in the tree - consider a lower node such as [WhereClause] (i.e., qryPatterns) or [GroupGraphPattern] 
-            qpt = self.QueryPatternTriple(entity_expression=entity_expression, sparql_tree=self.parsedQuery, nsMgr=self.nsMgr)
-            qpt.addNode(qrySrcNode)
+            qpt = self.QueryPatternTripleAssociation(entity_expression=entity_expression, sparql_tree=self.parsedQuery, nsMgr=self.nsMgr)
+            qpt.addQPTRef(qrySrcNode)
             self.qpTriples.append(qpt)
 #             print("QP triple(s) determined: \n\t", str(qpt))
 #             print("Vars that are bound by these: ")

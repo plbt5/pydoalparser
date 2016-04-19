@@ -20,7 +20,7 @@ class Mediator(object):
     '''
       
     @classmethod
-    def canonical(cls, rel):
+    def canonicalCorrRelation(cls, rel):
         if rel.lower() in ['=', 'equivalence', 'eq']:
             return 'EQ' 
         elif rel.lower() in ['<', '<=', 'subsumption', 'lt', 'lower-than', 'le']:
@@ -50,10 +50,6 @@ class Mediator(object):
             self.nme = el.get(RDFABOUT)
             if self.nme == None: raise ValueError('XML attribute {} expected in element {}'.format(RDFABOUT, el.tag))
             
-            self.src = el.find('xmlns:entity1', ns)
-            if self.src == None: raise RuntimeError('Edoal element <xmlns:entity1> required')
-            elif not (self.src[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST]):
-                raise NotImplementedError('Only edoal EntityExpression type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.src["EntityExpression"]))
 
             self.tgt = el.find('xmlns:entity2', ns)
             if self.tgt == None: raise RuntimeError('Edoal element <xmlns:entity2> required')
@@ -62,7 +58,7 @@ class Mediator(object):
 
             rel = el.find('xmlns:relation', ns)
             if rel == None: raise RuntimeError('Edoal element <xmlns:relation> required')
-            else: self.rel = Mediator.canonical(rel.text)
+            else: self.rel = Mediator.canonicalCorrRelation(rel.text)
             
             self.tfn = []
             tfns = el.findall('xmlns:transformation', ns)

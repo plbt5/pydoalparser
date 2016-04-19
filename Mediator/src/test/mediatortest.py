@@ -5,6 +5,7 @@ Created on 26 feb. 2016
 '''
 import unittest
 from mediator.mediator import Mediator
+from parsertools.parsers.sparqlparser import parseQuery
 import warnings
 
 import xml.etree.cElementTree as etree
@@ -42,7 +43,8 @@ class Test(unittest.TestCase):
 #                     print('> EDOAL case:', t['EDOAL'])
 #                     print('> EDOAL type:', type(t['EDOAL']))
                 # Create the mediator for this testCase
-                m = Mediator(t['EDOAL'].getroot())
+                m = Mediator()
+                m._parseEDOAL(t['EDOAL'].getroot())
                 if debug >= 3:
                     print('> EDOALalgmt:', m.getName())
                 # Create the input query an related expected reference query for this testCase
@@ -55,10 +57,15 @@ class Test(unittest.TestCase):
                 if debug >= 1:
                     print()
                 # Execute all PASS cases
+                rq = parseQuery(inData)
+                if rq == []:
+                    raise RuntimeError("Couldn't parse the following query:\n{}".format(inData))
+                m.nsMgr.bindPrefixesFrom(rq)
+                
                 for p in t['pass']:
                     if debug >= 1:
                         print('testing PASS case:', p)
-                    r = m.corrs[p].translate(inData)
+                    r = m.corrs[p].translate(rq)
                     if debug >= 3:
                         print('      result:', r)
                     assert ''.join(refData.lower().split()) == ''.join(r.lower().split()), 'Translated data conflicts with expected data for correspondence {}'.format(p)
@@ -70,7 +77,7 @@ class Test(unittest.TestCase):
                         print('testing FAIL case:', f)
 #                     with self.assertRaises(NotImplementedError):
                     try:
-                        r = m.corrs[f[0]].translate(inData)
+                        r = m.corrs[f[0]].translate(rq)
                         # The following two lines should be dead code: Exception should have been raised.
                         print('Incorrect result:', r)
                         assert False, 'Test {} should have raised exception {}'.format(f[0], f[1])
@@ -107,7 +114,8 @@ class Test(unittest.TestCase):
                             for k,v in crit.items():
                                 print('\t{}: {}'.format(k, v))
                     #TODO: Make a PASS test execution
-                    r = Mediator(rdf.getroot())
+                    r = Mediator()
+                    r._parseEDOAL(rdf.getroot())
                     if debug >= 1:
                         print('\tmedtr:', r)
                         #TODO: Correct TypeError that is raised for print('result:', r)

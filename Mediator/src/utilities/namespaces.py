@@ -16,20 +16,10 @@ from parsertools.parsers.sparqlparser import parser
 from rdflib.term import _is_valid_uri, URIRef
 
 class NSManager(NamespaceManager):
-    prefixN = 0
+    _prefixCntr = 0
     RDFABOUT = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about'
+    RDFPARSTP = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}parseType'
     ALIGNMENT = '{http://knowledgeweb.semanticweb.org/heterogeneity/alignment#}Alignment'
-    EDOALCLASS = '{http://ns.inria.org/edoal/1.0/#}class'
-    EDOALRELN = '{http://ns.inria.org/edoal/1.0/#}relation'
-    EDOALPROP = '{http://ns.inria.org/edoal/1.0/#}property'
-    EDOALINST = '{http://ns.inria.org/edoal/1.0/#}instance'
-    EDOALCAOR = '{http://ns.inria.org/edoal/1.0/#}AttributeOccurenceRestriction'
-    EDOALCADR = '{http://ns.inria.org/edoal/1.0/#}AttributeDomainRestriction'
-    EDOALCATR = '{http://ns.inria.org/edoal/1.0/#}AttributeTypeRestriction'
-    EDOALCAVR = '{http://ns.inria.org/edoal/1.0/#}AttributeValueRestriction'
-    EDOALDIRECTION = '{http://ns.inria.org/edoal/1.0/#}direction'
-    EDOALAPPLY = '{http://ns.inria.org/edoal/1.0/#}Apply'
-    EDOALOPRTR = '{http://ns.inria.org/edoal/1.0/#}operator' 
        
     def __init__(self, nsDict={}, base=''):
         self.graph = Graph()
@@ -37,23 +27,57 @@ class NSManager(NamespaceManager):
         super().__init__(self.graph)
         self.bindPrefixes(nsDict)
 
+    def newPrefix(self, base_name='mns'):
+        self._prefixCntr+=1
+        return base_name + str(self._prefixCntr)
+
+    def isQName(self,qname):
+        '''
+        Validity is defined by absence of invalid characters, and
+        conforming to structure [(prefix)+ ':' local]
+        '''
+        if _is_valid_uri(qname): # check for invalid characters
+            parts = []
+            parts = qname.split(':')
+            if len(parts) == 2:
+                return parts[1] != '' 
+            elif len(parts) == 1:
+                return qname[0] == ':'
+        return False
+
+    def isClarks(self, string):
+        if _is_valid_uri(string): # check for invalid characters
+            if string[0] == '{':
+                _, local = string[1:].split("}")
+                return local != ''
+        return False
+            
     def split(self, string):
+        '''
+        Split namespace notation into prefix, prefix_expansion, iri_path. 
+        Currently only able to split from Clark's notation as input.
+        Notations without '{}' part assumes to live in Base
+        '''
         if string[0] == '{':
-            iri, local = string[1:].split("}")
-            if iri=='': iri = self.base
-            pf = self.getPrefix(iri)
-        else: raise NotImplementedError("Cannot split iri {} yet; please implement me".format(string))
-        return pf, iri, local
+            prefix_expansion, iri_path = string[1:].split("}")
+            if prefix_expansion=='': prefix_expansion = self.base
+            pf = self.getPrefix(prefix_expansion)
+        else: raise NotImplementedError("Cannot split prefix_expansion {} (yet; please implement me)".format(string))
+        return pf, prefix_expansion, iri_path
     
-    def getPrefix(self, iri):
-        if isinstance(iri, str) or isinstance(iri, Namespace):
-            iri = URIRef(iri)
+    def getPrefix(self, pf_expansion):
+        if isinstance(pf_expansion, str) or isinstance(pf_expansion, Namespace):
+            pf_expansion = URIRef(pf_expansion)
+        pflist = []
         for pf, ns in self.namespaces():
-            if ns == iri: return pf
-        # No getPrefix found, need to add a new getPrefix
-        self.prefixN+=1
-        pf = "mns" + str(self.prefixN)
-        self.bind(pf, URIRef(iri))
+            if ns == pf_expansion: pflist.append(pf)
+        if len(pflist) == 1:
+            return pflist[0]
+        else:
+            assert len(pflist) == 0, "More than one prefix found for namespace {}".format(ns)
+            # No getPrefix found, need to add a new getPrefix
+            pf = self.newPrefix()
+            self.bind(pf, URIRef(pf_expansion))
         return pf
         
     def bindPrefixes(self, nsDict, **args):
@@ -71,8 +95,24 @@ class NSManager(NamespaceManager):
             self.bindPrefixes(nsDict)
         else: raise Exception('Cannot bind prefixes from {}'.format(type(rq)))
         
+    def asQName(self, string):
+        assert _is_valid_uri(string), 'Cannot make QName from invalid uri, got <{}>'.format(string)
+        if self.isClarks(string):
+            ns, lbl = string[1:].split("}")
+            return self.getPrefix(ns), lbl
+        elif self.isQName(string):
+            return string.split(":")
+        elif string.rsplit("#") != '':
+            # Assume one '#' character only
+            ns, lbl = string.rsplit('#')
+            return self.getPrefix(ns), lbl
+        elif string.rsplint('/') != '':
+            ns, lbl = string.rsplint('/')
+            return self.getPrefix(ns), lbl
+        else: raise RuntimeWarning("Cannot convert ")
+        
     def asIRI(self, qname):
-        assert isinstance(qname,str) 
+        assert isinstance(qname,str) and self.isQName(qname)
         prefix, name = qname.split(":")
         if prefix == '':
             if self.base[-1] in ["/", "#"]:
@@ -81,18 +121,17 @@ class NSManager(NamespaceManager):
         for nsPF, ns in self.namespaces():
             if nsPF == prefix:
                 return "".join((ns, name))
-        raise Exception('Cannot turn "{}" into IRI due to missing XMLNS getPrefix in registered namespaces'.format(qname))
+        raise Exception('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(qname))
     
     def asClarks(self, qname):
-        assert isinstance(qname,str) 
+        assert isinstance(qname,str) and self.isQName(qname)
         prefix, name = qname.split(":")
         if prefix == '':
             return "{" + self.base + "}" + name
         for nsPF, ns in self.namespaces():
             if nsPF == prefix:
                 return "{"+ ns + "}" + name
-        raise Exception('Cannot turn "{}" into IRI due to missing XMLNS getPrefix in registered namespaces'.format(qname))
-
+        raise Exception('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(qname))
 
 '''
 =====================================================================================
