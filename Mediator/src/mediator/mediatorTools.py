@@ -6,16 +6,18 @@ Created on 18 apr. 2016
 
 from utilities.namespaces import NSManager
 from mediator.sparqlTools import Context
+from rdflib import term
+
 
 #TODO: Remove tight coupling - create x-ref (in EDOALparser) between EDOAL and MEDIATOR constants
-from mediator.EDOALparser.ParseAlignment import EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST
+from mediator.EDOALparser import ParseAlignment
 
 from parsertools.parsers.sparqlparser import parser
 from parsertools.base import ParseStruct
 
 '''
-A mediator currently can only apply <equivalence> correspondence relations between entity expressions.
-The correspondence relations <subsumption> and <subsumed by> between entity expressions, and the 
+A mediator currently can only apply <equivalence> correspondence relations between entity_iriref expressions.
+The correspondence relations <subsumption> and <subsumed by> between entity_iriref expressions, and the 
 correspondence relations <element of> and <encompasses> between individuals and class expressions are not 
 supported yet.
 '''
@@ -29,19 +31,27 @@ MEDRELNI  = 'MRNI'
 
 
 class EntityExpression():
-    def __init__(self, entity='', entity_type=''):
-        assert isinstance(entity, str) and entity_type in [NSManager.RDFABOUT, EDOALPROP], "Entity_type out of range: Got {}".format(entity_type)
-        self.entity = entity
+    def __init__(self, entity_iri='', entity_type=''):
+        assert term._is_valid_uri(entity_iri), "Entity {} appears not a valid iri".format(entity_iri)
+        assert entity_type in [NSManager.RDFABOUT, ParseAlignment.EDOALPROP, ParseAlignment.EDOALCLASS, ParseAlignment.EDOALINST, ParseAlignment.EDOALRELN], \
+            "Entity_type out of range: Got {}".format(entity_type)
+        self.entity_iriref = entity_iri
         self.entity_type = entity_type
+    
+    def getEntityIriRef(self):
+        return self.entity_iriref
+    
+    def getEntityType(self):
+        return self.entity_type
         
     def __str__(self):
-        return self.entity + ' (' + self.entity_type +')'
+        return self.entity_iriref + ' (' + self.entity_type +')'
 
          
 class Correspondence():
     '''
-    A Correspondence specifies a single mapping from an entity expression in ontology A to a corresponding
-    entity expression in ontology B. Each correspondence provides for a transformation of sparql data that 
+    A Correspondence specifies a single mapping from an entity_iriref expression in ontology A to a corresponding
+    entity_iriref expression in ontology B. Each correspondence provides for a transformation of sparql data that 
     is expressed in terms of ontology A, into its semantic equivalent in terms of ontology B.
     '''
 
@@ -50,21 +60,22 @@ class Correspondence():
         '''
         Factory to create a transformation function.  
         '''
+        assert len(operands) == 1, "No support for more than 1 operand during value transformation (yet, please implement me), got {}".format(len(operands))
         def transform(self, value_logic_node):
             '''
             Transform a sparql ValueLogic node according to the specified operation, but only when the specified condition is met. 
             Otherwise, return None
             '''
-            #TODO: include translation from source entity to target entity (result) 
+            #TODO: include translation from source entity_iriref to target entity_iriref (result) 
             assert isinstance(value_logic_node, ParseStruct)
-            assert len(operands) == 1, "No support for more than 1 operand during value transformation, got {}".format(len(operands))
             if condition(value_logic_node):
-                nodes = value_logic_node.searchElements(element_type=operands)
+                nodes = value_logic_node.searchElements(element_type=operands[0])
                 if nodes == []: raise RuntimeError("Cannot find the operand [{}] to transform".format(operands))
                 for node in nodes:
                     for itemValue in node.getItems():
-                        if operands in [parser.DECIMAL, parser.INTEGER, parser.DOUBLE]:
+                        if operands[0] in [parser.DECIMAL, parser.INTEGER, parser.DOUBLE]:
                             value = float(itemValue)
+                        else: value = str(itemValue)
                         transfdValue = operation(value)
                         node.updateWith(str(transfdValue))
                 return value_logic_node
@@ -75,7 +86,7 @@ class Correspondence():
     def __init__(self, *, nsMgr = None):
         '''
         A Correspondence represents the core element of an Alignment, since it specifies one of the mappings between
-        the source entity expression and the target entity expression, including the transformation that is to be applied.
+        the source entity_iriref expression and the target entity_iriref expression, including the transformation that is to be applied.
         Each Correspondence provides for a translation method that will provide for a translation of a data instance.
         
         Typical use of a Correspondence object is that it (i) will be created by a parser, and (ii) used by a data translator.
@@ -95,30 +106,30 @@ class Correspondence():
         self.rel = ''
         self.tfs = []
 
-    def setName(self, *, name):
-        assert isinstance(name, str), "Cannot set a Correspondence's name without an input string"
+    def setName(self, *, name=None):
+        assert isinstance(name, str) and name != '', "Cannot set a Correspondence's name without an input string"
         self.name = name
     
     def getName(self):
         return self.name        
         
-    def setSrcEE(self, *, src_entity, entity_type):
-        assert isinstance(src_entity, str), "To set a source entity expression requires iri, got {}".format(src_entity)
-        assert entity_type in [EDOALPROP, EDOALCLASS, EDOALRELN, EDOALINST], "Setting a source entity expression requires its entity_type, got {}".format(entity_type)
+    def setSrcEE(self, *, src_entity=None, entity_type=None):
+        assert isinstance(src_entity, str), "To set a source entity_iriref expression requires iri, got {}".format(src_entity)
+        assert entity_type in [NSManager.RDFABOUT, ParseAlignment.EDOALPROP, ParseAlignment.EDOALCLASS, ParseAlignment.EDOALRELN, ParseAlignment.EDOALINST], "Setting a source entity_iriref expression requires its entity_type, got {}".format(entity_type)
         self.src = EntityExpression(src_entity, entity_type)
         
     def getSrcEE(self):
         return self.src
         
-    def setTgtEE(self, *, tgt_entity, entity_type):
-        assert isinstance(tgt_entity, str), "To set a source entity expression requires iri, got {}".format(tgt_entity)
-        assert entity_type in [EDOALPROP, EDOALCLASS, EDOALRELN, EDOALINST], "To set a source entity expression requires its entity_type, got {}".format(entity_type)
+    def setTgtEE(self, *, tgt_entity=None, entity_type=None):
+        assert isinstance(tgt_entity, str), "To set a source entity_iriref expression requires iri, got {}".format(tgt_entity)
+        assert entity_type in [NSManager.RDFABOUT, ParseAlignment.EDOALPROP, ParseAlignment.EDOALCLASS, ParseAlignment.EDOALRELN, ParseAlignment.EDOALINST], "To set a source entity_iriref expression requires its entity_type, got {}".format(entity_type)
         self.tgt = EntityExpression(tgt_entity, entity_type)
         
     def getTgtEE(self):
         return self.tgt   
     
-    def setCorrRelation(self, *, relation):
+    def setCorrRelation(self, *, relation=None):
         assert isinstance(relation, str) and relation in [MEDRELEQ, MEDRELSUB, MEDRELSUP, MEDRELIN, MEDRELNI], \
             "To set a correspondence relation requires on of [{}, {}, {}, {}, {}], got '{}'".format(MEDRELEQ, MEDRELSUB, MEDRELSUP, MEDRELIN, MEDRELNI, relation)
         self.rel = relation
@@ -126,7 +137,7 @@ class Correspondence():
     def getCorrRelation(self):
         return self.rel  
 
-    def appendTransform(self, *, condition, operands, operation, result):
+    def appendTransform(self, *, condition=None, operands=None, operation=None, result=None):
         #TODO: JEROEN - assert isinstance(condition)
         assert isinstance(operands, list), "Adding a transformation requires operands as list, got {}".format(operands)
         assert callable(operation), "Adding a transformation requires a callable operation, got {}".format(operation)
@@ -166,7 +177,7 @@ class Correspondence():
 #             print("translating {} ---> {}".format(self.src, self.tgt))
 
         # Prepare the target for the translation, i.e., turn it into a pf:iri_path form
-        tgt_prefix, tgt_pf_expansion, tgt_iri_path = self.nsMgr.split(self.tgt.entity)
+        tgt_prefix, tgt_pf_expansion, tgt_iri_path = self.nsMgr.split(self.tgt.entity_iriref)
         tgt_prefix = tgt_prefix + ':'
         tgt_pf_expansion = '<' + tgt_pf_expansion + '>'
         tgt = tgt_prefix+tgt_iri_path
@@ -214,7 +225,4 @@ class Correspondence():
         return True
 
 
-    
-if __name__ == '__main__':
-    print('running main')
 

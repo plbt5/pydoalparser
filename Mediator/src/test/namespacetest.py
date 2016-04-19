@@ -5,6 +5,7 @@ Created on 12 apr. 2016
 '''
 import unittest
 from utilities.namespaces import NSManager
+from rdflib import term
 
 
 class Test(unittest.TestCase):
@@ -21,8 +22,7 @@ class Test(unittest.TestCase):
         
 
     def tearDown(self):
-        for ns in self.nsMgr.namespaces():
-            print(ns)
+        pass
 
     def testAsClarks(self):
         assert str(self.nsMgr.asClarks('dc:creator')) == '{http://purl.org/dc/elements/1.1/}creator'
@@ -52,13 +52,95 @@ class Test(unittest.TestCase):
         pf = self.nsMgr.getPrefix('http://ds.tno.nl/non-existent/1.0/')
         assert pf == expectedPF, "Expected {}, got {}".format(expectedPF, pf)
         
-    def testIs_valid_qname(self):
+    def testIsQName(self):
         assert self.nsMgr.isQName('appel:ei')
         assert self.nsMgr.isQName(':ei')
         assert not self.nsMgr.isQName('appel:')
         assert not self.nsMgr.isQName(':appel:ei')
         assert not self.nsMgr.isQName('koe:appel:ei')
+        assert not self.nsMgr.isQName('http://knowledgeweb.semanticweb.org/heterogeneity/alignment#egg')
+    
+    def testIsClarks(self):
+        assert self.nsMgr.isClarks('{appel}ei')
+        assert self.nsMgr.isClarks('{}ei')
+        assert not self.nsMgr.isClarks('{appel}')
+        assert not self.nsMgr.isClarks('appel{}')
+        assert not self.nsMgr.isClarks('appel{ei}')
+        assert not self.nsMgr.isClarks('{}{appel}ei')
+        assert not self.nsMgr.isClarks('{koe}{appel}ei')
+        assert not self.nsMgr.isClarks('}appel}ei')
+        assert not self.nsMgr.isClarks('{appel{ei')
+        assert not self.nsMgr.isClarks('{appel}{ei')
+        assert not self.nsMgr.isClarks('{appel{}ei')
 
+    def testSplit(self):
+        # Success scenarios
+        pf, prefix_expansion, iri_path = self.nsMgr.split('dc:path')
+        assert pf == 'dc' and prefix_expansion == term.URIRef('http://purl.org/dc/elements/1.1/') and iri_path == 'path', "Got pf:{}, expansion:{}, path:{}".format(pf,prefix_expansion, iri_path)
+        pf, prefix_expansion, iri_path = self.nsMgr.split(':path')
+        assert pf == '' and prefix_expansion == term.URIRef('http://knowledgeweb.semanticweb.org/heterogeneity/alignment#') and iri_path == 'path', "Got pf:{}, expansion:{}, path:{}".format(pf,prefix_expansion, iri_path)
+        pf, prefix_expansion, iri_path = self.nsMgr.split('{http://purl.org/dc/elements/1.1/}path')
+        assert pf == 'dc' and prefix_expansion == term.URIRef('http://purl.org/dc/elements/1.1/') and iri_path == 'path', "Got pf:{}, expansion:{}, path:{}".format(pf,prefix_expansion, iri_path)
+        pf, prefix_expansion, iri_path = self.nsMgr.split('{}path')
+        assert pf == '' and prefix_expansion == term.URIRef('http://knowledgeweb.semanticweb.org/heterogeneity/alignment#') and iri_path == 'path', "Got pf:{}, expansion:{}, path:{}".format(pf,prefix_expansion, iri_path)
+        # Fail scenarios
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('path:')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a*a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a!a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a@a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a$a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a%a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a^a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a&a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a(a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a)a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a_a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a-a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a+a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a=a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a[a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a]a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a|a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a;a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a"a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split("a'a")
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a~a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a`a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a,a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a<a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a>a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('a?a')
+        with self.assertRaises(NotImplementedError): 
+            pf, prefix_expansion, iri_path = self.nsMgr.split('http://knowledgeweb.semanticweb.org/heterogeneity/alignment#path')
+
+        
+        
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testAsClarks']
     unittest.main()

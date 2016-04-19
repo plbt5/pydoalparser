@@ -71,7 +71,7 @@ class Context():
         class QPTripleRefs():
             '''
             A QPTripleRefs contains the association between one Correspondence of an Alignment, and the sparql tree. From the latter,
-            it contains (i) the triples that are to be translated, (ii) the position of the entity in question in the triple, and (iii) the
+            it contains (i) the triples that are to be translated, (ii) the position of the entity_iriref in question in the triple, and (iii) the
             variables that are bound in this triples.
             '''
             
@@ -137,7 +137,7 @@ class Context():
             
             def considerBinding(self, qpnode):
                 # We assume that we only need to take into consideration the variables in order to be able to follow through with the translations, hence
-                # the PNAME's, i.e., iri's that are bound to this entity, are assumed to be taken care of as another EDOAL alignment map
+                # the PNAME's, i.e., iri's that are bound to this entity_iriref, are assumed to be taken care of as another EDOAL alignment map
 #                 if type(qpnode).__name__ in ['VAR1', 'VAR2', 'PNAME_LN']:
                 if type(qpnode).__name__ in ['VAR1', 'VAR2']:
                     if (not str(qpnode) in self.binds) and (not qpnode == self.about):
@@ -160,22 +160,22 @@ class Context():
             
         def __init__(self, *, entity_expression, sparql_tree, nsMgr):
 #             assert isinstance(entity_expression, EntityExpression) and isinstance(sparql_tree, ParseStruct)
-            self.represents = '' # (EntityExpression) the EDOAL entity (Class, Property, Relation, Instance) name;
+            self.represents = '' # (EntityExpression) the EDOAL entity_iri (Class, Property, Relation, Instance) name;
                                  # This is in fact unnecessary because this is already stored in the higher Context class
             self.qpNodes = []    # List of (QPTripleRefs)s, i.e., implicit Query Pattern nodes that address the Entity Expression
-            self.pfdNodes = {}   # Dict of (ParseStruct)s indexed by prefix : the PrefixDecl nodes that this entity relates to
+            self.pfdNodes = {}   # Dict of (ParseStruct)s indexed by prefix : the PrefixDecl nodes that this entity_iri relates to
             self.sparqlTree = '' # The sparql tree that this class uses to relate to
             
             assert entity_expression.__class__.__name__ == 'EntityExpression' and isinstance(nsMgr, NSManager) and isinstance(sparql_tree, ParseStruct)
             # Now find the atom of the main Node, i.e., what this is all about, and store it
             if entity_expression == None or sparql_tree == None:
-                raise RuntimeError("Require parsed sparql tree and sparql node, and edoal entity expression.")
+                raise RuntimeError("Require parsed sparql tree and sparql node, and edoal entity_iri expression.")
             self.represents = entity_expression
             self.sparqlTree = sparql_tree
             # Now find the [PrefixDecl] nodes
             #TODO: Remove this after refactoring to locally valid namespace expansion etc. in SPARQLStruct
             prefixDecls = sparql_tree.searchElements(element_type=parser.PrefixDecl)
-            _, src_iriref, _ = nsMgr.split(entity_expression.entity)
+            _, src_iriref, _ = nsMgr.split(entity_expression.entity_iriref)
             for prefixDecl in prefixDecls:
                 ns_prefix, ns_iriref = str(prefixDecl.prefix)[:-1], str(prefixDecl.namespace)[1:-1]
                 if ns_iriref == src_iriref: 
@@ -391,9 +391,9 @@ class Context():
 
 
         def __init__(self, sparql_tree, sparqle_var):
-            #TODO: Consider the necessity of the two object variables boundVar & entity
+            #TODO: Consider the necessity of the two object variables boundVar & entity_iri
             self.boundVar = ''       # (String) the name of the [Var] that has been bounded in the QueryPatternTripleAssociation; Necessary?? 
-            self.entity = ''         # (String) the entity expression that this var has been bound to
+            self.entity_iriref = ''         # (String) the entity_iri expression that this var has been bound to
             self.valueLogics = []    # list of (ValueLogicNode)s, each of them formulating one single constraint, e.g., (?var > DECIMAL)
             
             if sparql_tree == None or sparqle_var == None:
@@ -465,15 +465,15 @@ class Context():
         '''
         Generate the sparql context that is associated with the EntityExpression. If no entity_type is given, assume an IRI type.
         Returns the context, with attributes:
-        * entity       : (mediator.Correspondence.EntityExpression) the subject EntityExpression
+        * entity_iri       : (mediator.Correspondence.EntityExpression) the subject EntityExpression
         * sparqlTree   : (ParseStruct) the parsed sparql-query-tree
         * qpTriples    : the qpNodes from the sparql Query Pattern that are referred to in the EntityExpression
         * constraints   : the qpNodes from the sparql Query Pattern FILTER that constrain the variables bound in the qpTriples 
         
         '''
-        self.entity = ''         # (EntityExpression) The EDOAL entity (Class, Property, Relation, Instance) name this context is about;
+        self.entity_iriref = ''         # (EntityExpression) The EDOAL entity_iri (Class, Property, Relation, Instance) name this context is about;
         self.parsedQuery = ''    # (parser.grammar.ParseInfo) The parsed query that is to be mediated
-        self.qpTriples = []      # List of (QueryPatternTripleAssociation)s, representing the contextualised triples that are addressing the EDOAL entity (self.about)
+        self.qpTriples = []      # List of (QueryPatternTripleAssociation)s, representing the contextualised triples that are addressing the EDOAL entity_iri (self.about)
         self.constraints = {}    # Dictionary, indexed by the bound variables that occur in the qpTriples, as contextualised Filters.
         self.nsMgr = None        # (namespaces.NSManager): the current nsMgr that can resolve any namespace issues of this mediator 
         
@@ -481,13 +481,13 @@ class Context():
         assert isinstance(sparqlTree, ParseStruct) and entity_expression.__class__.__name__ == 'EntityExpression' and isinstance(nsMgr, NSManager)
 
         self.nsMgr = nsMgr
-        self.entity = entity_expression
+        self.entity_iriref = entity_expression
         #TODO: process other sparqlData than sparql query, i.e., rdf triples or graph, and sparql result sets
         self.parsedQuery = sparqlTree
         if self.parsedQuery == []:
             raise RuntimeError("Cannot parse the query sparqlData")
         
-        eePf, eeIri, eeTag = self.nsMgr.split(entity_expression.entity)
+        eePf, eeIri, eeTag = self.nsMgr.split(entity_expression.entity_iriref)
         src_qname = eePf + ':' + eeTag
         
         # 1: Find the qpNodes for which the context is to be build, matching the Entity1 Name and its Type
@@ -496,7 +496,7 @@ class Context():
             raise RuntimeError("Cannot find element <{}> of type {} in sparqlData".format(src_qname, entity_type))
         
         # 2: Build the context
-        self.qpTriples = []         # List of (QPTripleRefs)s that address the edoal entity.
+        self.qpTriples = []         # List of (QPTripleRefs)s that address the edoal entity_iri.
 #         self.qmNodes = {}           # a dictionary, indexed by the qp.about, i.e., the name of the EntityExpression, of lists of constraints 
                                     # that appear in the Query Modifiers clause, each list indexed by the variable name that is bound
         # 2.1: First build the Query Pattern Triples
@@ -535,7 +535,7 @@ class Context():
         #TODO: Assumed one [GraphPatternNotTriples] (hence, list(...)[0])  
         filterTop = self.parsedQuery.searchElements(element_type=parser.GraphPatternNotTriples)
         if filterTop == []:
-            raise RuntimeError("Cannot find Query Modifiers clause (LIMIT, )")
+            raise RuntimeError("Cannot find Query Modifiers clause (Filter)")
 #             print('Top for QM part of tree:')
 #             print(filterTop.dump())
         # 2.2.2 - for each bound variable in the qp, collect the ValueLogics that represent its constraint
@@ -554,7 +554,7 @@ class Context():
 
 
     def __str__(self):
-        result = "<entity1>: " + str(self.entity) + "\nhas nodes:"
+        result = "<entity1>: " + str(self.entity_iriref) + "\nhas nodes:"
         for qpt in self.qpTriples:
             result += "\n-> " + str(qpt) 
         result += "\n"
@@ -569,6 +569,6 @@ class Context():
             
     def getSparqlElements(self):
         result = []
-        print("NOT IMPLEMENTED: Searching for sparql elements that are associated with <{}>".format(self.entity))
+        print("NOT IMPLEMENTED: Searching for sparql elements that are associated with <{}>".format(self.entity_iriref))
         return(result)
   

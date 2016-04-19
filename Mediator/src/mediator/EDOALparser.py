@@ -6,7 +6,6 @@ Created on 17 apr. 2016
 from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import Element
 from utilities.namespaces import NSManager
-from mediator.mediatorTools import Correspondence, MEDRELEQ, MEDRELSUB, MEDRELSUP, MEDRELIN, MEDRELNI
 from rdflib.term import URIRef
  
 class ParseAlignment():
@@ -19,6 +18,7 @@ class ParseAlignment():
     '''
     @classmethod
     def canonicalCorrRelation(cls, rel):
+        from mediator.mediatorTools import MEDRELEQ, MEDRELSUB, MEDRELSUP, MEDRELIN, MEDRELNI
         if rel.lower() in ['=', 'equivalence', 'eq']:
             return MEDRELEQ 
         elif rel.lower() in ['<', '<=', 'subsumption', 'lt', 'lower-than', 'le']:
@@ -309,6 +309,8 @@ class ParseAlignment():
         Extract from the EDOAL XML file all <map><Cell> ... </Cell></map> parts
         and populate a newly made Mediator.Correspondence class with the relevant information
         '''
+        from mediator.mediatorTools import Correspondence
+        
         cells = self._align.findall(self.nsMgr.asClarks('align:map') + '/' + self.nsMgr.asClarks('align:Cell'))
         if len(cells) == 0:
             raise RuntimeError('An Edoal alignment requires at least one {} element, but zero found'.format(self.nsMgr.asClarks('align:map') + '/' + self.nsMgr.asClarks('_align:Cell')))

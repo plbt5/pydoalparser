@@ -4,8 +4,7 @@ Created on 23 mrt. 2016
 @author: brandtp
 '''
 import unittest
-from mediator.sparql import getBGPs
-from sparqlparser.grammar import parseQuery, separatedList
+
 import json
 
 class Test(unittest.TestCase):

@@ -13,7 +13,7 @@ from rdflib import Graph
 from rdflib.namespace import Namespace, NamespaceManager
 from parsertools.base import ParseStruct
 from parsertools.parsers.sparqlparser import parser
-from rdflib.term import _is_valid_uri, URIRef
+from rdflib import term
 
 class NSManager(NamespaceManager):
     _prefixCntr = 0
@@ -23,7 +23,7 @@ class NSManager(NamespaceManager):
        
     def __init__(self, nsDict={}, base=''):
         self.graph = Graph()
-        self.base = base
+        self.base = term.URIRef(base)
         super().__init__(self.graph)
         self.bindPrefixes(nsDict)
 
@@ -36,38 +36,61 @@ class NSManager(NamespaceManager):
         Validity is defined by absence of invalid characters, and
         conforming to structure [(prefix)+ ':' local]
         '''
-        if _is_valid_uri(qname): # check for invalid characters
+        if term._is_valid_uri(qname): # check for invalid characters
             parts = []
             parts = qname.split(':')
             if len(parts) == 2:
-                return parts[1] != '' 
+                return parts[1] != '' and parts[1][:2] != '//' 
             elif len(parts) == 1:
                 return qname[0] == ':'
+            else: return False
         return False
 
     def isClarks(self, string):
-        if _is_valid_uri(string): # check for invalid characters
-            if string[0] == '{':
-                _, local = string[1:].split("}")
-                return local != ''
+        curlyBs = set('{}')
+        if term._is_valid_uri(''.join([c for c in string if c not in curlyBs])): # check for invalid characters, except the '{}'
+            parts = []
+            parts = string.split("}")
+            if len(parts) == 2:
+                return parts[1] != '' and term._is_valid_uri(parts[1]) and term._is_valid_uri(parts[0][1:])
+            elif len(parts) == 1:
+                return parts[0] == '{'
         return False
-            
+    
+    def expand(self, prefix):
+        assert term._is_valid_uri(prefix) , "Cannot expand illegal prefix ({})".format(prefix)
+        result = []
+        for nsPF, ns in self.namespaces():
+            if nsPF == prefix:
+                result.append(ns)
+        if len(result) == 1: return result[0]
+        assert len(result) == 0, "Did not expect more than one namespace matches for {}".format(prefix)
+        return result
+        
     def split(self, string):
         '''
         Split namespace notation into prefix, prefix_expansion, iri_path. 
         Currently only able to split from Clark's notation as input.
         Notations without '{}' part assumes to live in Base
         '''
-        if string[0] == '{':
-            prefix_expansion, iri_path = string[1:].split("}")
-            if prefix_expansion=='': prefix_expansion = self.base
-            pf = self.getPrefix(prefix_expansion)
+        prefix = ''
+        if self.isClarks(string):
+            prefix_exp_string, iri_path = string[1:].split("}")
+            prefix_expansion = term.URIRef(prefix_exp_string)
+            if prefix_expansion==term.URIRef(''): prefix_expansion = self.base
+            else: prefix = self.getPrefix(prefix_expansion)
+        elif self.isQName(string):
+            prefix, iri_path = string.split(':')
+            if prefix == '': 
+                prefix_expansion = self.base 
+            else:
+                prefix_expansion = self.expand(prefix)
         else: raise NotImplementedError("Cannot split prefix_expansion {} (yet; please implement me)".format(string))
-        return pf, prefix_expansion, iri_path
+        return prefix, prefix_expansion, iri_path
     
     def getPrefix(self, pf_expansion):
         if isinstance(pf_expansion, str) or isinstance(pf_expansion, Namespace):
-            pf_expansion = URIRef(pf_expansion)
+            pf_expansion = term.URIRef(pf_expansion)
         pflist = []
         for pf, ns in self.namespaces():
             if ns == pf_expansion: pflist.append(pf)
@@ -75,9 +98,12 @@ class NSManager(NamespaceManager):
             return pflist[0]
         else:
             assert len(pflist) == 0, "More than one prefix found for namespace {}".format(ns)
-            # No getPrefix found, need to add a new getPrefix
-            pf = self.newPrefix()
-            self.bind(pf, URIRef(pf_expansion))
+            # No prefix found, check base
+            pf = ''
+            if pf_expansion != self.base:
+                # need to add a new getPrefix, and register the (prefix,expanded_prefix) pair
+                pf = self.newPrefix()
+                self.bind(pf, pf_expansion)
         return pf
         
     def bindPrefixes(self, nsDict, **args):
@@ -96,7 +122,7 @@ class NSManager(NamespaceManager):
         else: raise Exception('Cannot bind prefixes from {}'.format(type(rq)))
         
     def asQName(self, string):
-        assert _is_valid_uri(string), 'Cannot make QName from invalid uri, got <{}>'.format(string)
+        assert term._is_valid_uri(string), 'Cannot make QName from invalid uri, got <{}>'.format(string)
         if self.isClarks(string):
             ns, lbl = string[1:].split("}")
             return self.getPrefix(ns), lbl
