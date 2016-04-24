@@ -47,12 +47,14 @@ class EntityExpression():
     def __str__(self):
         return self.entity_iriref + ' (' + self.entity_type +')'
 
-         
+       
 class Correspondence():
     '''
     A Correspondence specifies a single mapping from an entity_iriref expression in ontology A to a corresponding
     entity_iriref expression in ontology B. Each correspondence provides for a transformation of sparql data that 
     is expressed in terms of ontology A, into its semantic equivalent in terms of ontology B.
+    A Correspondence can only have one source and one target entity expression, one relation and one measure property, 
+    though it may have several transformation and linkkey properties. (See also: http://alignapi.gforge.inria.fr/edoal.html)
     '''
 
 
@@ -94,6 +96,7 @@ class Correspondence():
         - name: (string)          : the name of the correspondence 
         - src: (EntityExpression) : the source EntityExpression expression
         - tgt: (EntityExpression) : the target EntityExpression expression
+        - msr: (Dict)             : the measure that is estimated to hold between the entity expressions: msr['value'] and msr['type']
         - rel: (string)           : the relationship between the source and target EntityExpressions
         - tfs: [](transform)      : (optional) List of transformations on ValueLogics 
         ''' 
@@ -104,6 +107,7 @@ class Correspondence():
         self.src = ''
         self.tgt = ''
         self.rel = ''
+        self.msr = {}
         self.tfs = []
 
     def setName(self, *, name=None):
@@ -137,6 +141,19 @@ class Correspondence():
     def getCorrRelation(self):
         return self.rel  
 
+    def setCorrMeasure(self, *, measure=None, measure_type=None):
+        # Note: the measure_type is a string in iri format, representing an xsd:datatype; 
+        # the measure is a string representation of its value
+        assert measure!=None and measure!='' and measure_type!=None and measure_type!='', "To add a measure value to the correspondence requires a measure value and type, got {} and {}, resp.".format(measure,measure_type)
+        if measure_type in [self.nsMgr.asIRI('xsd:float'), self.nsMgr.asIRI('xsd:double'), self.nsMgr.asIRI('xsd:decimal'), self.nsMgr.asIRI('xsd:integer')]:
+            measure = float(measure) 
+            assert measure >= 0.0 and measure <= 1.0, "Measure value should be in [0,1], got {}".format(measure)
+        self.msr["value"] = measure
+        self.msr["type"] = measure_type
+        
+    def getCorrMeasure(self):
+        return self.msr["value"], self.msr["type"]
+            
     def appendTransform(self, *, condition=None, operands=None, operation=None, result=None):
         #TODO: JEROEN - assert isinstance(condition)
         assert isinstance(operands, list), "Adding a transformation requires operands as list, got {}".format(operands)

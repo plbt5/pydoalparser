@@ -45,12 +45,187 @@
 				</formalism>
 			</Ontology>
 		</onto2>
-		<!-- Testcase: Incomplete <map><Cell>...</Cell></map> -->
+		<!-- Testcase: Several fail cases -->
+		<map>
+			<Cell rdf:about="MappingRule_0">
+				<!-- Testcase: Empty <Cell> element -->
+			</Cell>
+		</map>
 		<map>
 			<Cell rdf:about="MappingRule_1">
 				<!-- Testcase: Missing <entity1> -->
 				<entity2>
 					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_11">
+				<!-- Testcase: multiple <entity1>s -->
+				<entity1>
+					<edoal:Class rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity1>
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_2">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<!-- Testcase: Missing <entity2> -->
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_21">
+				<!-- Testcase: multiple <entity2>s -->
+				<entity1>
+					<edoal:Class rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<entity2>
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_3">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<!-- Testcase: Missing <relation> -->
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_31">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<!-- Testcase: Multiple <relation>s -->
+				<relation>EQ</relation>
+				<relation>EQ</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_32">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<!-- Testcase: Illegal <relation> -->
+				<relation>appelepap</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_4">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<!-- Testcase: Missing <measure> -->
+				<relation>EQ</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_41">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<!-- Testcase: Multiple <measure>s -->
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>EQ</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_42">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<!-- Testcase: Missing <measure> attribute -->
+				<measure>1.0</measure>
+				<relation>EQ</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_5">
+				<entity1>
+					<!-- Testcase: Missing Property attribute rdf:about -->
+					<edoal:Property/>
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>EQ</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_6">
+				<entity1>
+					<!-- Testcase: Empty entity element -->
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>EQ</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_7">
+				<entity1>
+					<!-- Testcase: Unknown edoal:element in entity -->
+					<edoal:UnknowEdoalEntity rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_8">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<!-- Testcase: Unknown cell element -->
+				<edoal:UnknowCellElement rdf:about="&ontoA;unEquivanox" />
+				<entity2>
+					<edoal:UnknowEdoalEntity rdf:about="&ontoB;OneEq" />
 				</entity2>
 				<measure rdf:datatype="&xsd;float">1.0</measure>
 				<relation>Equivalence</relation>

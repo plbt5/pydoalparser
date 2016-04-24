@@ -25,8 +25,9 @@ class Test(unittest.TestCase):
         pass
 
     def testAsClarks(self):
-        assert str(self.nsMgr.asClarks('dc:creator')) == '{http://purl.org/dc/elements/1.1/}creator'
-        assert str(self.nsMgr.asClarks(':align')) == '{' + self.base + '}align', 'Expected: {}, got: {}'.format('{' + self.base + '}align', str(self.nsMgr.asClarks(':align')))
+        assert isinstance(self.nsMgr.asClarks('dc:creator'),str)
+        assert self.nsMgr.asClarks('dc:creator') == '{http://purl.org/dc/elements/1.1/}creator'
+        assert self.nsMgr.asClarks(':align') == '{' + self.base + '}align', 'Expected: {}, got: {}'.format('{' + self.base + '}align', str(self.nsMgr.asClarks(':align')))
         with self.assertRaises(Exception): 
             self.nsMgr.asClarks('none:creator')
         with self.assertRaises(Exception): 
@@ -72,6 +73,23 @@ class Test(unittest.TestCase):
         assert not self.nsMgr.isClarks('{appel{ei')
         assert not self.nsMgr.isClarks('{appel}{ei')
         assert not self.nsMgr.isClarks('{appel{}ei')
+        
+    def testIsIRI(self):
+        assert self.nsMgr.isIRI('preamb://authority.something/iri_expans/iri_path')
+        assert self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans/iri_path')
+        assert self.nsMgr.isIRI('preamb://authority.org/iri_expans#iri_path')
+        assert self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans#iri_path')
+        assert not self.nsMgr.isIRI('preamb://authority/iri_expans/iri_path')
+        assert not self.nsMgr.isIRI('://authority.something/iri_expans/iri_path')
+        assert not self.nsMgr.isIRI('preamb:authority.something/iri_expans/iri_path')
+        assert not self.nsMgr.isIRI('preamb:authority')
+        assert not self.nsMgr.isIRI('{preamb://authority.org/iri_expans/iri_expans#}iri_path')
+        assert not self.nsMgr.isIRI('{preamb://authority.org/iri_expans/iri_expans/}iri_path')
+        assert not self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expan/iri_path#')
+        assert not self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans#iri/path')
+        assert not self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans#iri_path/')
+        assert not self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans/iri_path/')
+        
 
     def testSplit(self):
         # Success scenarios

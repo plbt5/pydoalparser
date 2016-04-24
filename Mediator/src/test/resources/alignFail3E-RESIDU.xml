@@ -45,7 +45,7 @@
 				</formalism>
 			</Ontology>
 		</onto2>
-		<!-- Testcase: Missing <map><Cell>...</Cell></map> -->
+		<!-- Testcase: Fail test -->
 		<map>
 			<Cell rdf:about="MappingRule_1">
 				<entity1>
@@ -58,5 +58,19 @@
 				<!-- Testcase: Missing <relation> -->
 			</Cell>
 		</map>
+		<map>
+			<Cell rdf:about="MappingRule_2">
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox" />
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<!-- Testcase: Illegal <relation> -->
+				<relation>appelepap</relation>
+			</Cell>
+		</map>
+		
 	</Alignment>
 </rdf:RDF>

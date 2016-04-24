@@ -5,6 +5,7 @@ Created on 26 feb. 2016
 '''
 import unittest
 from mediator.mediator import Mediator
+from mediator.EDOALparser import ParseAlignment
 from parsertools.parsers.sparqlparser import parseQuery
 import warnings
 
@@ -35,36 +36,37 @@ class Test(unittest.TestCase):
                 print('Correspondence tests')
                 print('=-'*10)
             for t in testCases[rule]:
+                # Create the mediator for this testCase
+                edoal_alignment = ParseAlignment(t['algn'])
+                m = Mediator(edoal_alignment)
+                if debug >= 3:
+                    print('> EDOALalgmt:', m.getName())
                 if info:
                     print('\ntesting', rule, 'with', len(t['pass']), 'pass case(s) and', len(t['fail']), 'fail case(s)')
                 if debug >= 3:
                     print('> pass cases:', t['pass'])
                     print('> fail cases:', t['fail'])
-#                     print('> EDOAL case:', t['EDOAL'])
-#                     print('> EDOAL type:', type(t['EDOAL']))
-                # Create the mediator for this testCase
-                m = Mediator()
-                m._parseEDOAL(t['EDOAL'].getroot())
-                if debug >= 3:
-                    print('> EDOALalgmt:', m.getName())
-                # Create the input query an related expected reference query for this testCase
-                inData = 'SELECT ?v WHERE {}'.format(t['data'][0])
-                refData = 'SELECT ?v WHERE {}'.format(t['data'][1])
-                if debug >= 1:
-                    print('> input qry :', inData)
-                if debug >= 3:
-                    print('> expect qry:', refData)
-                if debug >= 1:
-                    print()
+#                     print('> EDOAL case:', t['algn'])
+#                     print('> EDOAL type:', type(t['algn']))
+
                 # Execute all PASS cases
-                rq = parseQuery(inData)
-                if rq == []:
-                    raise RuntimeError("Couldn't parse the following query:\n{}".format(inData))
-                m.nsMgr.bindPrefixesFrom(rq)
-                
                 for p in t['pass']:
                     if debug >= 1:
                         print('testing PASS case:', p)
+                    # Create the input query an related expected reference query for this testCase
+                    inData = 'SELECT ?v WHERE {}'.format(t['data'][0])
+                    refData = 'SELECT ?v WHERE {}'.format(t['data'][1])
+                    if debug >= 1:
+                        print('> input qry :', inData)
+                    elif debug >= 3:
+                        print('> expect qry:', refData)
+                    if debug >= 1:
+                        print()
+                    rq = parseQuery(inData)
+                    if rq == []:
+                        raise RuntimeError("Couldn't parse the following query:\n{}".format(inData))
+                    #TODO: Prefix namespace vervangen voor parsertree namespace
+                    m.nsMgr.bindPrefixesFrom(rq)
                     r = m.corrs[p].translate(rq)
                     if debug >= 3:
                         print('      result:', r)
@@ -114,7 +116,8 @@ class Test(unittest.TestCase):
                             for k,v in crit.items():
                                 print('\t{}: {}'.format(k, v))
                     #TODO: Make a PASS test execution
-                    r = Mediator()
+                    edoal_alignment = ParseAlignment(p)
+                    r = Mediator(edoal_alignment)
                     r._parseEDOAL(rdf.getroot())
                     if debug >= 1:
                         print('\tmedtr:', r)
@@ -148,45 +151,13 @@ class Test(unittest.TestCase):
         self.testCases = {}
 
         # Mediator tests
-        self.testCases['EDOAL'] = []
-            
-        self.testCases['EDOAL'].append({ 
-            # Since MEDIATOR testCases do not have sufficient granularity to distinguish Cell Abouts (i.e., MappingRules)
-            # it is NOT POSSIBLE to use an Alignment.xml file for BOTH pass AND fail 
-            'pass': {'resources/alignPassSimple0.xml':                      # Simple Class-EQ-Class, Prop-EQ-Prop, Reln-EQ-Reln
-                      {'about': 'http://ds.tno.nl/ontoA-ontoB/CPR-EQ-CPR', 
-                       'corrs': 4},
-                     'resources/wine_align.xml':                            # Simple Class-EQ-Class, Prop-EQ-Prop, Reln-LT-Reln,
-                      {'about': 'http://oms.omwg.org/wine-vin/',            #   & one SmplSrcCls-EQ-CmplxTgtCls, one CmpxlSrcCls-LT-CmplxTgtCls
-                       'corrs': 5}
-                    },
-            'fail': [['resources/alignFail0A.xml', RuntimeError],          # Missing <Alignment> element
-                    ['resources/alignFail0B.xml', ValueError],             # Missing 'rdf:about="somename"' in <Alignment > element
-                    ['resources/alignFail1A.xml', NotImplementedError],    # Incorrect value for <Level> element: 2EDOAL expected
-                    ['resources/alignFail1B.xml', RuntimeError],           # Missing <Level> element 
-                    ['resources/alignFail2A.xml', RuntimeError],           # Missing <type> element 
-                    ['resources/alignFail2B.xml', ValueError],             # Illegal value for <Level> element 
-                    ['resources/alignFail3A.xml', RuntimeError],           # Missing <map><Cell>...</Cell></map> element 
-                    ['resources/alignFail3B.xml', RuntimeError],           # Missing Cell Body element 
-                    ['resources/alignFail3C.xml', RuntimeError],           # Missing <entity1> element 
-                    ['resources/alignFail3D.xml', RuntimeError],           # Missing <entity2> element 
-                    ['resources/alignFail3E.xml', RuntimeError],           # Missing <relation> element 
-                    ['resources/alignFail3F.xml', RuntimeError],           # Missing About attribute in EDOAL element
-                    ['resources/alignFail3G.xml', NotImplementedError]               # Unknown EDOAL element 
-                    ]
-              }
-            )
-                
-
         
         # SELECT tests
         self.testCases['SELECT'] = []
-        with open('resources/wine_align.xml', 'r') as f:
-            rdf = etree.parse(f)
         inData = '{?v <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/TR/2003/CR-owl-guide-20030818/wine#VintageYear> .}' 
         outData = '{?v <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ontology.deri.org/vin#Millesime> .}' 
         self.testCases['SELECT'].append({
-            'EDOAL': rdf, 
+            'algn': 'resources/wine_align.xml', 
             'data': [inData, outData],
             'pass': ['MappingRule_0',                                 # Simple C-EQ-C
                      'MappingRule_1',                                 # Simple P-EQ-P
@@ -197,12 +168,10 @@ class Test(unittest.TestCase):
               }
             )
         
-        with open('resources/alignPassSimple0.xml', 'r') as f:
-            rdf = etree.parse(f)
         inData = '{?v <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://tutorial.topbraid.com/ontoA#unEquivanox> .}' 
         outData = '{?v <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://tutorial.topbraid.com/ontoB#oneEq> .}' 
         self.testCases['SELECT'].append({
-            'EDOAL': rdf, 
+            'algn': 'resources/alignPassSimple0.xml', 
             'data': [inData, outData],
             'pass': ['MappingRule_0',                                 # Simple C-EQ-C
                      'MappingRule_1',                                 # Simple P-EQ-P

@@ -61,14 +61,6 @@ class Mediator(object):
 
         self.nsMgr = alignment.nsMgr
         self.about = alignment.getAbout()
-#         self.creator = None
-#         self.date    = None
-#         self.method  = None
-#         self.purpose = None
-#         self.level   = ''
-#         self.type    = ''
-#         self.onto1   = None
-#         self.onto2   = None
         self.corrs = alignment.getCorrespondences()
         
         

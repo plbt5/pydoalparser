@@ -17,7 +17,8 @@ from rdflib import term
 
 class NSManager(NamespaceManager):
     _prefixCntr = 0
-    RDFABOUT = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about'
+    RDFABOUT  = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about'
+    RDFDATATP = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}datatype'
     RDFPARSTP = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}parseType'
     ALIGNMENT = '{http://knowledgeweb.semanticweb.org/heterogeneity/alignment#}Alignment'
        
@@ -45,8 +46,43 @@ class NSManager(NamespaceManager):
                 return qname[0] == ':'
             else: return False
         return False
+    
+    def isIRI(self,iri):
+        '''
+        Validity is defined by absence of invalid characters, and
+        conforming to structure [some_text '://' authority '/' iri_expansion  ('/'|'#') iri_path]
+        '''
+        if term._is_valid_uri(iri): # check for invalid characters
+            preamble = []
+            preamble = iri.split(':')
+            if len(preamble) == 2 and preamble[0] != '':
+                # Found exactly 1 ':', now check if it is part of '://'?
+                if preamble[1][:2] == '//':
+                    # Found the authority part, but does it end with a domain-code?
+                    if len(preamble[1].split('.')) == 2:
+                        # Find the /iri_expansion?
+                        iriparts = []
+                        iriparts = preamble[1][2:].split('/', 1)
+                        if len(iriparts) == 2:
+                            # Found the iri_expansion, is there a iri_path? Check for 1 '#'
+                            iripath = iriparts[1].split('#')
+                            if len(iripath) == 2:
+                                # Found iri_path: check there is no '/' in the iri_path, and the '#' is not the last character of the iri_path
+                                return len(iripath[1].split('/')) == 1 and iripath[1] != ''
+                            elif len(iripath) == 1:
+                                # no iri_path found based on '#', but there is one if there's at least one '/' in the iri_expansion, and
+                                # the last character is not an '/' (i.e., the last split is empty)
+                                iripath = iriparts[1].split('/')
+                                return len(iripath) > 1 and iripath[len(iripath)-1] != '' 
+                            else: return False
+                        else: return len(iriparts) == 2
+        return False
 
     def isClarks(self, string):
+        '''
+        Validity is defined by absence of invalid characters, and
+        conforming to structure ['{' (prefix_exp_string)+ '}' local]
+        '''
         curlyBs = set('{}')
         if term._is_valid_uri(''.join([c for c in string if c not in curlyBs])): # check for invalid characters, except the '{}'
             parts = []
@@ -137,9 +173,10 @@ class NSManager(NamespaceManager):
             return self.getPrefix(ns), lbl
         else: raise RuntimeWarning("Cannot convert ")
         
-    def asIRI(self, qname):
-        assert isinstance(qname,str) and self.isQName(qname)
-        prefix, name = qname.split(":")
+    def asIRI(self, text_expression):
+        assert isinstance(text_expression,str) and self.isQName(text_expression)
+        if self.isIRI(text_expression): return True
+        prefix, name = text_expression.split(":")
         if prefix == '':
             if self.base[-1] in ["/", "#"]:
                 return self.base + name
@@ -147,16 +184,16 @@ class NSManager(NamespaceManager):
         for nsPF, ns in self.namespaces():
             if nsPF == prefix:
                 return "".join((ns, name))
-        raise Exception('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(qname))
+        raise Exception('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(text_expression))
     
     def asClarks(self, qname):
         assert isinstance(qname,str) and self.isQName(qname)
         prefix, name = qname.split(":")
         if prefix == '':
-            return "{" + self.base + "}" + name
+            return str("{" + self.base + "}" + name)
         for nsPF, ns in self.namespaces():
             if nsPF == prefix:
-                return "{"+ ns + "}" + name
+                return str("{"+ ns + "}" + name)
         raise Exception('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(qname))
 
 '''

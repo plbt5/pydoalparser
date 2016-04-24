@@ -47,9 +47,9 @@
 		</onto2>
 		<!-- Testcase: Incomplete <map><Cell>...</Cell></map> -->
 		<map>
-			<Cell rdf:about="MappingRule_1">
-				<!-- Missing Cell Body elements -->
-			</Cell>
+
+				<!-- Missing Cell element -->
+
 		</map>
 	</Alignment>
 </rdf:RDF>

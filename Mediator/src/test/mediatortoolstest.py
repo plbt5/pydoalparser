@@ -103,6 +103,16 @@ class settersGettersTest(unittest.TestCase):
         with self.assertRaises(AssertionError): 
             self.c.setCorrRelation(relation=False)
 
+    def testSetCorrMeasure(self):
+        # Success scenarios
+        for val, tpe in [(0.01,self.nsMgr.asIRI('xsd:float')),('medium',self.nsMgr.asIRI('xsd:string')),(0.0,self.nsMgr.asIRI('xsd:double')),(1.0,self.nsMgr.asIRI('xsd:float')),(0,self.nsMgr.asIRI('xsd:decimal')),(1,self.nsMgr.asIRI('xsd:integer'))]:
+            self.c.setCorrMeasure(measure=val, measure_type=tpe)
+            assert (val, tpe) == self.c.getCorrMeasure()
+        # Failure scenarios - no check exist yet for incoherence between measure and measure_type, e.g., (0.42, xsd:integer), or ('appelepap', xsd:float)
+        for val, tpe in [(0.01,''),(None,self.nsMgr.asIRI('xsd:float')),(None,None),('',None),(None,''),('',''),(-0.1,self.nsMgr.asIRI('xsd:float')),(12,self.nsMgr.asIRI('xsd:integer'))]:
+            with self.assertRaises(AssertionError): 
+                self.c.setCorrMeasure(measure=val, measure_type=tpe)
+        
 
 class transformTest(unittest.TestCase):
     from parsertools.parsers import sparqlparser
