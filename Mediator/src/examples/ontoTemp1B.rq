@@ -1,0 +1,8 @@
+# Query op ontoTemp1B
+
+SELECT ?p ?v
+WHERE {
+    ?t rdf:type rdf:Property .
+	?p ?t ?v .
+	FILTER (?v > 98.6)
+}

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE rdf:RDF >
+
+<rdf:RDF xmlns="http://ns.tno.nl/mediator/test#"
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+	xmlns:align="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
+	xmlns:t="http://ns.tno.nl/mediator/test#">
+	<!-- This is an INVALID edoal file, but only used as placeholder for various testcases for the Value elements --> 
+	<!-- Testcases for the LITERAL value elements --> 
+	<t:test rdf:about="valuePass1A">
+		<edoal:entity1>
+			<edoal:Literal edoal:type="xsd:string" edoal:string="appelepap" />
+		</edoal:entity1>
+	</t:test>
+	<t:test rdf:about="valuePass1B">
+		<edoal:entity1>
+			<edoal:Literal edoal:type="xsd:integer" edoal:string="123" />
+		</edoal:entity1>
+	</t:test>
+	<t:test rdf:about="valuePass1C">
+		<edoal:entity1>
+			<edoal:Literal edoal:type="xsd:float" edoal:string="1.23" />
+		</edoal:entity1>
+	</t:test>
+</rdf:RDF>

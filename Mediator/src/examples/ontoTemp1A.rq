@@ -1,0 +1,8 @@
+# query op ontoTemp1A
+
+SELECT ?p ?v
+WHERE {
+    ?p rdf:type :Patient .
+	?p :hasTemp ?v .
+	FILTER (?v > 37.0)
+}

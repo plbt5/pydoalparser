@@ -4,104 +4,132 @@ Created on 1 apr. 2016
 @author: brandtp
 '''
 
-# import elementtree.ElementTree as ET
+#TODO: gebruik lxml in plaats van xml.etree
 import xml.etree.ElementTree as ET
 from builtins import str
-
-
-from rdflib import Graph
-from rdflib.namespace import Namespace, NamespaceManager
 from parsertools.base import ParseStruct
-from parsertools.parsers.sparqlparser import parser
-from rdflib import term
+from parsertools.parsers import sparqlparser
+import warnings
+from rfc3987 import parse, match
 
-class NSManager(NamespaceManager):
+class NSManager():
     _prefixCntr = 0
-    RDFABOUT  = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about'
-    RDFDATATP = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}datatype'
-    RDFPARSTP = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}parseType'
-    ALIGNMENT = '{http://knowledgeweb.semanticweb.org/heterogeneity/alignment#}Alignment'
-       
-    def __init__(self, nsDict={}, base=''):
-        self.graph = Graph()
-        self.base = term.URIRef(base)
-        super().__init__(self.graph)
-        self.bindPrefixes(nsDict)
+    _CLARKS = lambda x,y: '{' + x + '}' + y
+    
+    NS = {
+          'xsd' : 'http://www.w3.org/2001/XMLSchema#',
+          'rdf' : 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+          'tno' : 'http://ts.tno.nl/mediator/1.0/',
+          'align' : 'http://knowledgeweb.semanticweb.org/heterogeneity/alignment#'
+    }
+    
+    CLARKS_LABELS = {
+        # XSD names
+        'XSDSTRING'  : _CLARKS(NS['xsd'], 'string'), 
+        # RDF names
+        'RDFABOUT'   : _CLARKS(NS['rdf'], 'about'),
+        'RDFDATATP'  : _CLARKS(NS['rdf'], 'datatype'),
+        'RDFPARSTP'  : _CLARKS(NS['rdf'], 'parseType'),
+        # Edoal Alignment names
+        'ALIGNMENT'  : _CLARKS(NS['align'], 'Alignment')
+    }
+ 
+    @staticmethod
+    def _valid_uri_chars(exclude=[], *, uri_string=''):
+        # The following characters are reserved characters for URI's, hence invalid (https://tools.ietf.org/html/rfc3986#page-12)
+        # Added the '{', '}' and '^' characters
+        #TODO: Replace for tooling in rfc3987 package
+        for c in ["[", "]", "@", "!", "$", "&", "'", "(", ")", "*", "+", ",", ";", "=", "{", "}", "^"]:
+            if c in uri_string: 
+                if not c in exclude: return False
+        return True
 
-    def newPrefix(self, base_name='mns'):
-        self._prefixCntr+=1
-        return base_name + str(self._prefixCntr)
-
-    def isQName(self,qname):
+    @classmethod
+    def isQName(cls, qname):
         '''
         Validity is defined by absence of invalid characters, and
-        conforming to structure [(prefix)+ ':' local]
+        conforming to structure [(prefix)? ':' local]
         '''
-        if term._is_valid_uri(qname): # check for invalid characters
-            parts = []
-            parts = qname.split(':')
-            if len(parts) == 2:
-                return parts[1] != '' and parts[1][:2] != '//' 
-            elif len(parts) == 1:
-                return qname[0] == ':'
-            else: return False
+        if qname != "":
+            if cls._valid_uri_chars(uri_string=qname, exclude=[':']): # check for invalid characters
+                parts = []
+                parts = qname.split(':')
+                if len(parts) == 2:
+                    return parts[1] != '' and parts[1][:2] != '//' 
+                elif len(parts) == 1:
+                    return qname[0] == ':'
+                else: return False
         return False
     
-    def isIRI(self,iri):
+    @classmethod
+    def isIRI(cls, iri):
         '''
         Validity is defined by absence of invalid characters, and
         conforming to structure [some_text '://' authority '/' iri_expansion  ('/'|'#') iri_path]
         '''
-        if term._is_valid_uri(iri): # check for invalid characters
+        #TODO: Replace for tooling in rfc3987 package
+        if cls._valid_uri_chars(uri_string=iri, exclude=['/', ':']): # check for invalid characters
             preamble = []
             preamble = iri.split(':')
             if len(preamble) == 2 and preamble[0] != '':
                 # Found exactly 1 ':', now check if it is part of '://'?
                 if preamble[1][:2] == '//':
                     # Found the authority part, but does it end with a domain-code?
-                    if len(preamble[1].split('.')) == 2:
-                        # Find the /iri_expansion?
-                        iriparts = []
-                        iriparts = preamble[1][2:].split('/', 1)
-                        if len(iriparts) == 2:
-                            # Found the iri_expansion, is there a iri_path? Check for 1 '#'
-                            iripath = iriparts[1].split('#')
-                            if len(iripath) == 2:
-                                # Found iri_path: check there is no '/' in the iri_path, and the '#' is not the last character of the iri_path
-                                return len(iripath[1].split('/')) == 1 and iripath[1] != ''
-                            elif len(iripath) == 1:
-                                # no iri_path found based on '#', but there is one if there's at least one '/' in the iri_expansion, and
-                                # the last character is not an '/' (i.e., the last split is empty)
-                                iripath = iriparts[1].split('/')
-                                return len(iripath) > 1 and iripath[len(iripath)-1] != '' 
-                            else: return False
-                        else: return len(iriparts) == 2
+                    auth = preamble[1][2:].split('/', 1)
+                    if auth[0] == '/' or auth[0] == '': return False 
+                    dom = auth[0].rsplit('.', 1)
+                    if len(dom) > 1:
+                        if len(dom[1]) >= 2 and len(dom[1]) <= 4:
+                            # Find the /iri_expansion?
+                            iriparts = auth[1].rsplit('/', 1)
+                            # Found an iri_path, if it's trailing it represents an invalid path
+                            if iriparts[-1] == '': return False
+                            hashparts = auth[1].rsplit('#')
+                            if len(hashparts) == 1: return True
+                            if len(hashparts) == 2:
+                                # Only one '#' present
+                                if '#' in iriparts[-1] and hashparts[-1] == '':
+                                    # Found a trailing '#', which indicates an invalid iri_path
+                                    return False
+                                # Found one single '#', only when its last part doesn't carry a '/', it is a valid iri
+                                return not ('/' in hashparts[-1])
         return False
 
-    def isClarks(self, string):
+    @classmethod
+    def isClarks(cls, string):
         '''
         Validity is defined by absence of invalid characters, and
         conforming to structure ['{' (prefix_exp_string)+ '}' local]
         '''
-        curlyBs = set('{}')
-        if term._is_valid_uri(''.join([c for c in string if c not in curlyBs])): # check for invalid characters, except the '{}'
+        if cls._valid_uri_chars(uri_string=string, exclude=['{','}']): # check for invalid characters, except the '{}'
             parts = []
             parts = string.split("}")
             if len(parts) == 2:
-                return parts[1] != '' and term._is_valid_uri(parts[1]) and term._is_valid_uri(parts[0][1:])
+                return parts[1] != '' and cls._valid_uri_chars(uri_string=parts[1]) and cls._valid_uri_chars(uri_string=parts[0][1:])
             elif len(parts) == 1:
                 return parts[0] == '{'
         return False
+
+
+      
+    def __init__(self, nsDict={}, base=''):
+        if base == '': base = self.NS['tno']
+        self.base = base
+        self.nsmap = {None: base}   # the default namespace (no prefix)
+        self.nspam = {base: None}   # the reversed namespace map
+        self.bindPrefixes(self.NS)  # Register the standard namespaces
+        self.bindPrefixes(nsDict=nsDict)
+
+    def newPrefix(self, base_name='mns'):
+        self._prefixCntr+=1
+        return base_name + str(self._prefixCntr)
     
     def expand(self, prefix):
-        assert term._is_valid_uri(prefix) , "Cannot expand illegal prefix ({})".format(prefix)
-        result = []
-        for nsPF, ns in self.namespaces():
-            if nsPF == prefix:
-                result.append(ns)
-        if len(result) == 1: return result[0]
-        assert len(result) == 0, "Did not expect more than one namespace matches for {}".format(prefix)
-        return result
+        assert self._valid_uri_chars(uri_string=prefix) , "Cannot expand illegal prefix ({})".format(prefix)
+        if prefix == '': prefix = None
+        if prefix in self.nsmap:
+            return self.nsmap[prefix]
+        else: return prefix
         
     def split(self, string):
         '''
@@ -112,8 +140,8 @@ class NSManager(NamespaceManager):
         prefix = ''
         if self.isClarks(string):
             prefix_exp_string, iri_path = string[1:].split("}")
-            prefix_expansion = term.URIRef(prefix_exp_string)
-            if prefix_expansion==term.URIRef(''): prefix_expansion = self.base
+            prefix_expansion = prefix_exp_string
+            if prefix_expansion=='': prefix_expansion = self.base
             else: prefix = self.getPrefix(prefix_expansion)
         elif self.isQName(string):
             prefix, iri_path = string.split(':')
@@ -125,77 +153,98 @@ class NSManager(NamespaceManager):
         return prefix, prefix_expansion, iri_path
     
     def getPrefix(self, pf_expansion):
-        if isinstance(pf_expansion, str) or isinstance(pf_expansion, Namespace):
-            pf_expansion = term.URIRef(pf_expansion)
-        pflist = []
-        for pf, ns in self.namespaces():
-            if ns == pf_expansion: pflist.append(pf)
-        if len(pflist) == 1:
-            return pflist[0]
-        else:
-            assert len(pflist) == 0, "More than one prefix found for namespace {}".format(ns)
-            # No prefix found, check base
-            pf = ''
-            if pf_expansion != self.base:
-                # need to add a new getPrefix, and register the (prefix,expanded_prefix) pair
-                pf = self.newPrefix()
-                self.bind(pf, pf_expansion)
-        return pf
+        assert isinstance(pf_expansion, str), "Cannot find prefix in non-string {}, quitting".format(type(pf_expansion))
+        if pf_expansion in self.nspam:
+            return self.nspam[pf_expansion]
+        else: 
+            pf = self.newPrefix()
+            self.bindPrefixes({pf: pf_expansion})
+            return pf
         
-    def bindPrefixes(self, nsDict, **args):
+    def bindPrefixes(self, nsDict):
         assert isinstance(nsDict,dict)
-        for prefix in nsDict:
-            self.bind(prefix, nsDict[prefix], **args)
+        for k in nsDict:
+            try:
+                self.nsmap[k] = nsDict[k]
+                self.nspam[nsDict[k]] = k
+            except: raise RuntimeError('Cannot register double prefixes {} or double namespaces {}'.format(k, nsDict[k]))
             
     def bindPrefixesFrom(self, rq=None):
+        warnings.warn("Binding prefixes from sparql query to the namespace tabel is PLAIN WRONG!! because you need to unbind them as well")
         if isinstance(rq, ParseStruct):
-            prefixDecls = rq.searchElements(element_type=parser.PrefixDecl)
+            prefixDecls = rq.searchElements(element_type=sparqlparser.PrefixDecl)
             nsDict = {}
             for p in prefixDecls:
                 qry_prefix, qry_namespace = str(p.prefix)[:-1], str(p.namespace)[1:-1]
                 nsDict[qry_prefix] = qry_namespace
             self.bindPrefixes(nsDict)
         else: raise Exception('Cannot bind prefixes from {}'.format(type(rq)))
-        
-    def asQName(self, string):
-        assert term._is_valid_uri(string), 'Cannot make QName from invalid uri, got <{}>'.format(string)
-        if self.isClarks(string):
-            ns, lbl = string[1:].split("}")
-            return self.getPrefix(ns), lbl
-        elif self.isQName(string):
-            return string.split(":")
-        elif string.rsplit("#") != '':
-            # Assume one '#' character only
-            ns, lbl = string.rsplit('#')
-            return self.getPrefix(ns), lbl
-        elif string.rsplint('/') != '':
-            ns, lbl = string.rsplint('/')
-            return self.getPrefix(ns), lbl
-        else: raise RuntimeWarning("Cannot convert ")
-        
-    def asIRI(self, text_expression):
-        assert isinstance(text_expression,str) and self.isQName(text_expression)
-        if self.isIRI(text_expression): return True
-        prefix, name = text_expression.split(":")
-        if prefix == '':
-            if self.base[-1] in ["/", "#"]:
-                return self.base + name
-            else: return self.base + "/" + name
-        for nsPF, ns in self.namespaces():
-            if nsPF == prefix:
-                return "".join((ns, name))
-        raise Exception('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(text_expression))
     
-    def asClarks(self, qname):
-        assert isinstance(qname,str) and self.isQName(qname)
-        prefix, name = qname.split(":")
-        if prefix == '':
-            return str("{" + self.base + "}" + name)
-        for nsPF, ns in self.namespaces():
-            if nsPF == prefix:
-                return str("{"+ ns + "}" + name)
-        raise Exception('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(qname))
-
+    def _splitIRI(self, in_string):
+        assert self.isIRI(in_string), "Expected to split an IRI, but got <{}>".format(in_string)
+        if '#' in in_string:
+            # Assume one '#' character only
+            ns, lbl = in_string.rsplit('#', maxsplit=1)
+            return self.getPrefix(ns+'#'), lbl
+        elif '/' in in_string:
+            ns, lbl = in_string.rsplit('/', maxsplit=1)
+            return self.getPrefix(ns+'/'), lbl
+        else: raise NotImplementedError('Cannot turn straight IRI ({}) into a QName notation (yet, please implement me with rfc3987 pkge).'.format(in_string))
+    
+    def asQName(self, in_string):
+        assert isinstance(in_string,str), "Cannot turn {} into a QName notation".format(type(in_string))
+        if self.isQName(in_string):
+            return in_string.split(":")
+        elif self.isClarks(in_string):
+            ns, lbl = in_string[1:].split("}")
+            return self.getPrefix(ns), lbl
+        elif self.isIRI(in_string):
+            ns, lbl = self._splitIRI(in_string)
+            return self.getPrefix(ns), lbl
+        else: raise RuntimeError('Can only process Clarks, IRI or QName notation, unknown notation ({})'.format(in_string))
+        
+    def asIRI(self, in_string):
+        assert isinstance(in_string,str), "Cannot turn {} into an IRI notation".format(type(in_string))
+        if self.isIRI(in_string): return in_string
+        elif self.isQName(in_string):
+            prefix, name = in_string.split(":")
+            if prefix == '' or prefix == None:
+                if self.base[-1] in ["/", "#"]:
+                    return self.base + name
+                else: return self.base + "/" + name
+            elif prefix in self.nsmap:
+                return "".join((self.nsmap[prefix], name))
+            raise RuntimeError('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(in_string))
+        elif self.isClarks(in_string): 
+            ns, lbl = in_string[1:].split("}")
+            return self.expand(ns) + lbl
+        else: raise RuntimeError('Can only process Clarks, IRI or QName notation, unknown notation ({})'.format(in_string))
+    
+    def asClarks(self, in_string):
+        assert isinstance(in_string,str), "Cannot turn {} into a Clark's IRI notation".format(type(in_string))
+        if self.isClarks(in_string): return in_string
+        elif self.isQName(in_string):
+            prefix, name = in_string.split(":")
+            if prefix == '': prefix = None
+            if prefix in self.nsmap:
+                return str("{"+ self.nsmap[prefix] + "}" + name)
+            raise RuntimeError('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(in_string))
+        elif self.isIRI(in_string):
+            ns, lbl = self._splitIRI(in_string)
+            ns_exp = self.expand(ns)
+            return str("{"+ ns_exp + "}" + lbl)
+        else: raise RuntimeError('Can only process Clarks, IRI or QName notation, unknown notation ({})'.format(in_string))
+    
+    def __str__(self):
+        result = ''
+        for k in self.nsmap:
+            result += '{:<10}, {}\n'.format(str(k), str(self.nsmap[k]))
+        return result
+            
+    def __repr__(self):
+        result = ''
+        for k in self.nsmap:
+            result += str(k) + ' : ' + str(self.nsmap[k]) + ' : ' + str(self.nspam[self.nsmap[k]]) + '\n' 
 '''
 =====================================================================================
 = BELOW THIS LINE, NO OPERATIONAL CODE. JUST SOME OLD STUFF MAYBE OF INTEREST LATER =
@@ -228,7 +277,7 @@ class QualifiedName(tuple):
         ''' Clark's notation represents the format {uri}local
         '''
         if name[0] == '{':
-            uri, tag = name[1:].split("}")
+            _, tag = name[1:].split("}")
             if not (list(tag) in ['appelepap']):
                 pass
             

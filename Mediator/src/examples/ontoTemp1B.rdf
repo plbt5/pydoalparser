@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<rdf:RDF
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:owl="http://www.w3.org/2002/07/owl#"
+    xmlns="http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+  xml:base="http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B">
+  <owl:Ontology rdf:about="">
+    <owl:versionInfo rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >Created with TopBraid Composer</owl:versionInfo>
+  </owl:Ontology>
+  <owl:Class rdf:ID="PatientNaam">
+    <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+  </owl:Class>
+  <rdf:Property rdf:ID="temperature_inF">
+    <rdfs:domain rdf:resource="#PatientNaam"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+  </rdf:Property>
+  <PatientNaam rdf:ID="Dean">
+    <temperature_inF rdf:datatype="http://www.w3.org/2001/XMLSchema#float">98.6</temperature_inF>
+    <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Dean Quekèrt</rdfs:label>
+  </PatientNaam>
+  <PatientNaam rdf:ID="Wattre">
+    <temperature_inF rdf:datatype="http://www.w3.org/2001/XMLSchema#float">103.3</temperature_inF>
+    <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Wattre du Mont</rdfs:label>
+  </PatientNaam>
+</rdf:RDF>
+
+<!-- Created with TopBraid -->

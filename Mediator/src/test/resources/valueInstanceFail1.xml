@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE rdf:RDF >
+
+<rdf:RDF xmlns="http://ns.tno.nl/mediator/test#"
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+	xmlns:align="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
+	xmlns:t="http://ns.tno.nl/mediator/test#"
+	xmlns:tno="http://ns.tno.nl/mediator/instances#">
+	<!-- This is an INVALID edoal file, but only used as placeholder for various testcases for the Value elements --> 
+	<!-- Testcases - failing - for the INSTANCE value elements -->
+
+	<t:test rdf:about="Fail1">
+		<edoal:entity1> 
+			<!-- empty element -->
+		</edoal:entity1>
+	</t:test>
+	<t:test rdf:about="Fail2">
+		<edoal:entity1> <!-- Missing rdf:about attribute -->
+			<edoal:Instance  />
+		</edoal:entity1>
+	</t:test>
+	<t:test rdf:about="Fail3">
+		<edoal:entity1> <!-- Empty rdf:about attribute -->
+			<edoal:Instance rdf:about=""/>
+		</edoal:entity1>
+	</t:test>
+	<t:test rdf:about="Fail4">
+		<edoal:entity1> <!-- Incorrect attribute -->
+			<edoal:Instance rdf:datavalue="tno:instance" />
+		</edoal:entity1>
+	</t:test>
+	<t:test rdf:about="Fail5">
+		<edoal:entity1> <!-- Instance is always a single, empty element with its value in the attribute -->
+			<edoal:Instance >1.23</edoal:Instance>
+		</edoal:entity1>
+	</t:test>
+</rdf:RDF>

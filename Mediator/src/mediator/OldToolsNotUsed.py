@@ -39,9 +39,9 @@ class Mediator(object):
             
             Returns an object with fields:
             - .nme: (string) : the name of the correspondence (reification of rdf:about in <Cell>)
-            - .src: (elementtree Element) : the source EntityExpression expression
-            - .tgt: (elementtree Element) : the target EntityExpression expression
-            - .rel: (string) : the EDOAL EntityExpression expression relation
+            - ._src: (elementtree Element) : the source EntityExpression expression
+            - ._tgt: (elementtree Element) : the target EntityExpression expression
+            - ._rel: (string) : the EDOAL EntityExpression expression relation
             - .tfn: []       : List of translations for individuals of this source
                 * {'direction'} : direction if this transformation
                 * {'entity1'}   : (elementtree Element) : transformation details
@@ -51,14 +51,14 @@ class Mediator(object):
             if self.nme == None: raise ValueError('XML attribute {} expected in element {}'.format(RDFABOUT, el.tag))
             
 
-            self.tgt = el.find('xmlns:entity2', ns)
-            if self.tgt == None: raise RuntimeError('Edoal element <xmlns:entity2> required')
-            elif not ((self.tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
-                raise NotImplementedError('Only edoal EntityExpression type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.tgt[0].tag.lower()))
+            self._tgt = el.find('xmlns:entity2', ns)
+            if self._tgt == None: raise RuntimeError('Edoal element <xmlns:entity2> required')
+            elif not ((self._tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
+                raise NotImplementedError('Only edoal EntityExpression type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self._tgt[0].tag.lower()))
 
             rel = el.find('xmlns:relation', ns)
             if rel == None: raise RuntimeError('Edoal element <xmlns:relation> required')
-            else: self.rel = Mediator.canonicalCorrRelation(rel.text)
+            else: self._rel = Mediator.canonicalCorrRelation(rel.text)
             
             self.tfn = []
             tfns = el.findall('xmlns:transformation', ns)
@@ -76,13 +76,13 @@ class Mediator(object):
             e1 = ''
             e2 = ''
             t = ''
-            for el in self.src.iter():
+            for el in self._src.iter():
                 e1 += '\t' + el.tag + str(el.attrib) + '\n'
-            for el in self.tgt.iter():
+            for el in self._tgt.iter():
                 e2 += '\t' + el.tag + str(el.attrib) + '\n'
             for el in self.tfn:
                 t += '\t' + str(el['direction']) + '\n\tentity1: ' + str(el['entity1']) + '\n\tentity2: ' + str(el['entity2']) + '\n'
-            return self.getName() + '\n>>src:' + e1 + '>>tgt:' + e2 + '>>rel:' + self.rel + '\n>>tfn:' + t
+            return self.getName() + '\n>>_src:' + e1 + '>>_tgt:' + e2 + '>>_rel:' + self._rel + '\n>>tfn:' + t
         
         def getName(self):
             return self.nme
@@ -103,41 +103,41 @@ class Mediator(object):
             '''
             
             print(self.render())
-            if self.rel != 'EQ':
+            if self._rel != 'EQ':
                 #TODO: Translate entity_iriref expressions LT, GT and ClassConstraints
                 raise NotImplementedError('Only entity_iriref expression relations of type "EQ" supported')
-            elif (len(list(self.src.iter())) > 2):
+            elif (len(list(self._src.iter())) > 2):
                 # Classrestriction: <AttributeValueRestriction> onatt comp val </AttributeValueRestriction>
                 
-                if (self.src[0].tag.lower() == EDOALCLASS):
-                    if (self.src[0].get(RDFABOUT) == None):
+                if (self._src[0].tag.lower() == EDOALCLASS):
+                    if (self._src[0].get(RDFABOUT) == None):
                         # Complex Boolean Class Construct found
                         raise NotImplementedError('Complex Boolean Edoal Class constructs not supported')
                     else:
                         # Simple Class Entity found; hand over to the simple entity_iriref EQ translation
-                        print("Implementation required to translate {}".format(self.src[0].tag))
+                        print("Implementation required to translate {}".format(self._src[0].tag))
                         
-                elif (self.src[0].tag.lower() in [EDOALCAOR, EDOALCADR, EDOALCATR, EDOALCAVR]):
+                elif (self._src[0].tag.lower() in [EDOALCAOR, EDOALCADR, EDOALCATR, EDOALCAVR]):
                     # Complex Class Restriction found
                     
                     raise NotImplementedError('Complex Class Restriction found, under construction')
                 else: raise NotImplementedError('For complex entity_iriref expressions, only class restrictions supported')
             
-            elif (len(list(self.tgt.iter())) > 2):
+            elif (len(list(self._tgt.iter())) > 2):
                 raise NotImplementedError('Only simple entity2 expressions supported')
-            elif not ((self.src[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST]) and \
-                    (self.tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
-                raise KeyError('Only edoal entity_iriref type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self.src[0].tag.lower()))
+            elif not ((self._src[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST]) and \
+                    (self._tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
+                raise KeyError('Only edoal entity_iriref type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self._src[0].tag.lower()))
             
             # EQ relation for simple entities found. 
-            # Since this is a simple entity_iriref expression, get name of src (entity1) and tgt (entity2)
-            src = list(self.src.iter())[1].get(RDFABOUT)
-            tgt = list(self.tgt.iter())[1].get(RDFABOUT)
-#             at = AssociationGraph(edoalEntity=src, sparqlData=data)
+            # Since this is a simple entity_iriref expression, get name of _src (entity1) and _tgt (entity2)
+            src = list(self._src.iter())[1].get(RDFABOUT)
+            tgt = list(self._tgt.iter())[1].get(RDFABOUT)
+#             at = AssociationGraph(edoalEntity=_src, sparqlData=data)
 #             print("Association graph has {} statements:".format(len(at)))
 #             print ((at.serialize(format='turtle')).decode("utf-8"))
             
-            # Determine the sparql context for the src, i.e., in the parsed sparql tree, determine:
+            # Determine the sparql context for the _src, i.e., in the parsed sparql tree, determine:
             # the Node(s), their binding(s) and their constraining expression(s)
             rq = parseQuery(data)
             context = Context(edoalEntity=src, sparqlData=data)
@@ -145,16 +145,16 @@ class Mediator(object):
             context.render()
             print("translating {} ---> {}".format(src, tgt))
 
-            # Change the src into the tgt. 
+            # Change the _src into the _tgt. 
             # 1 - First the concepts in the Query Pattern part of the query.
-            #     The src can occur in multiple BGP's, and each qpNode represents a distinct BGP
+            #     The _src can occur in multiple BGP's, and each qpNode represents a distinct BGP
             for qpt in context.qpTriples:
-                print("tgt:", tgt)
+                print("_tgt:", tgt)
                 #TODO: Namespace problem, resolve
                 tgt = 'ToDoNS:'+tgt.split("#")[-1]
-                print("src:", str(qpt.represents))
-                print("tgt:", tgt)
-                for qpn in qpt.qpNodes:
+                print("_src:", str(qpt.represents))
+                print("_tgt:", tgt)
+                for qpn in qpt.qptRefs:
                     qpn.about.updateWith(tgt)
             # 2 - Then transform the constraints from the Query Modification part of the query.
             # 2.1 - Determine the edoal spec of the transformation; ASSUME simple transformation
@@ -164,8 +164,8 @@ class Mediator(object):
                         operator = element.get(EDOALOPRTR)
                         value = operator.find('edoal:arguments/edoal:Property', ns).get(RDFABOUT)
                     else: warnings.warn("Do not yet support other transformation specifications than <{}>".format(EDOALAPPLY))
-            #     The src can be bound to more than one variable that can have more constraints.
-            #     The qmNodes in the context is a dictionary for which the src indexes a list of variables. 
+            #     The _src can be bound to more than one variable that can have more constraints.
+            #     The qmNodes in the context is a dictionary for which the _src indexes a list of variables. 
             #     Each variable is represented by a qmNode; each constraint by a valueLogic.
             
             for key in context.qmNodes:
@@ -277,7 +277,7 @@ class AssociationGraph(Graph):
     Represents a structure that associates all nodes in a sparql query in a way that is related to mediation.
     '''
     mns = Namespace('http://ds.tno.nl/mediator/1.0/')
-    uris = {
+    localLabels = {
             'appearsAs' : 'AppearsAs',
             'binds'     : 'BINDS',
             'represents': 'REPR',
@@ -306,7 +306,7 @@ class AssociationGraph(Graph):
                     atom = s.descend()
                     if atom.isAtom():
                         # Add the Binds statement:
-                        self.graph.add((self.node, URIRef(AssociationGraph.mns[self.graph.uris['binds']]), Literal(atom)))
+                        self.graph.add((self.node, URIRef(AssociationGraph.mns[self.graph.localLabels['binds']]), Literal(atom)))
                 else: warnings.warn("Cannot yet create a bind statement for <{}> resources".format(sType)) # It may even be an ERROR
 
         
@@ -366,7 +366,7 @@ class AssociationGraph(Graph):
             
             # Create statement (1); since the BGP-position is not yet known, use a temporary Blank Node
             SPONode = self.AGBNode(self)
-            appearsAs = URIRef(self.mns[self.uris['appearsAs']])
+            appearsAs = URIRef(self.mns[self.localLabels['appearsAs']])
             entityNode = Literal(EntityExpression)
             self.add((entityNode, appearsAs, SPONode.node))
             
@@ -382,7 +382,7 @@ class AssociationGraph(Graph):
                         term = 'subject'
                         print("Found <{}>, type <{}>".format(p, nType))
                         # Now add statement (1), which is a modification of an already existing statement
-                        SPONode.node = URIRef(self.mns[self.uris[term]])
+                        SPONode.node = URIRef(self.mns[self.localLabels[term]])
                         self.set((entityNode, appearsAs, SPONode.node))
                         # Now add the statements (2)
                         atom = p.descend()
@@ -401,7 +401,7 @@ class AssociationGraph(Graph):
                     term = 'object'
                     print("Found <{}>, type <{}>".format(p, nType))
                     # Now add statement (1), which is a modification of an already existing statement
-                    SPONode.node = URIRef(self.mns[self.uris[term]])
+                    SPONode.node = URIRef(self.mns[self.localLabels[term]])
                     self.set((entityNode, appearsAs, SPONode.node))
                     # Now add statement (2)
                     atom = p.descend()
@@ -414,7 +414,7 @@ class AssociationGraph(Graph):
                     term = 'property'
                     print("Found <{}>, type <{}>".format(p, nType))
                     # Now add statement (1), which is a modification of an already existing statement
-                    SPONode.node = URIRef(self.mns[self.uris[term]])
+                    SPONode.node = URIRef(self.mns[self.localLabels[term]])
                     self.set((entityNode, appearsAs, SPONode.node))
                     # Now add statement (2)
                     atom = p.descend()
@@ -458,7 +458,7 @@ class AssociationGraph(Graph):
     
     def getSparqlElements(self, edoalEntity):
         result = []
-        prop = URIRef(self.mns[self.uris['appearsAs']])
+        prop = URIRef(self.mns[self.localLabels['appearsAs']])
         print("Searching for <{}> with property <{}>".format(edoalEntity,prop))
         tuples = self.predicate_objects()
         for p,o in tuples:

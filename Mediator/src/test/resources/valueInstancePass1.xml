@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE rdf:RDF >
+
+<rdf:RDF xmlns="http://ns.tno.nl/mediator/test#"
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+	xmlns:align="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
+	xmlns:t="http://ns.tno.nl/mediator/test#"
+	xmlns:tno="http://ns.tno.nl/mediator/instances#">
+	<!-- This is an INVALID edoal file, but only used as placeholder for various testcases for the Value elements --> 
+	<!-- Testcases for the INSTANCE value elements --> 
+	<t:test rdf:about="valuePass1A">
+		<edoal:entity1>
+			<edoal:Instance rdf:about="tno:appelepap" />
+		</edoal:entity1>
+	</t:test>
+</rdf:RDF>

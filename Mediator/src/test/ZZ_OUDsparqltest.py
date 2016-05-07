@@ -7,7 +7,7 @@ import unittest
 
 import json
 
-class Test(unittest.TestCase):
+class TestNSManager(unittest.TestCase):
 
 
     def setUp(self):
@@ -56,5 +56,5 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testsparql']
+    #import sys;sys.argv = ['', 'TestNSManager.testsparql']
     unittest.main()
