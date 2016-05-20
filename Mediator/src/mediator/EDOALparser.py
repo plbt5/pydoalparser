@@ -55,6 +55,7 @@ class ParseAlignment():
         'VAL'   : EDOAL_prefix + 'value'.lower(),
         'APPLY' : EDOAL_prefix + 'Apply'.lower(),
         'AGGR'  : EDOAL_prefix + 'Aggregate'.lower(),
+        'CMPS'  : EDOAL_prefix + 'compose',
         
         # Attribute names
         'DRCTN' : EDOAL_prefix + 'direction'.lower(),
@@ -69,13 +70,13 @@ class ParseAlignment():
 
     def __init__(self, fn):
         '''
-        Reads and parses the input file that contains the alignment (currently only ' : alignments supported). Returns an object
+        Reads and parses the input file (argument 'fn') that contains the alignment (currently only 'EDOAL' alignments supported). Returns an object
         with a variety on methods to get the required elements from the alignment. It also carries a namespace manager that is 
         populated with (namespace, prefix) pairs that are addressed within this alignment, some universal namespaces, e.g., RDF, and
         some particular EDOAL_prefix namespaces. 
         '''
         mediatorNSs = { 'med'   : 'http://ts.tno.nl/mediator/1.0/',
-                        'medtfn': 'http://ts.tno.nl/mediator/1.0/transformations/',
+                        'medtfn': 'http://ts.tno.nl/mediator/1.0/transformations#',
                         'dc'    : 'http://purl.org/dc/elements/1.1/',
                         'edoal' : ParseAlignment.EDOAL_NAMESPACE,
                         'align' : 'http://knowledgeweb.semanticweb.org/heterogeneity/alignment#',
@@ -97,6 +98,9 @@ class ParseAlignment():
         The Mediator requires an alignment. To that end it currently parses an EDOAL_prefix alignment.  
         Input: 
         - edoal : ( xml.etree.cElementTree.Element ): an edoal expression 
+        Result:
+         - self._align (xml.etree.cElementTree.Element): the <Alignment> node
+         - self.about (string): the name of the alignment as rdf:about attribute in the <Alignment> node
         '''
         assert (edoal != None) and (isinstance(edoal, ET.Element))
 
@@ -188,18 +192,79 @@ class ParseAlignment():
 
     def _parseBooleanExpression(self, el=None):
         '''
-        Parse a boolean entity construction
+        Parse a boolean entity construction.
+        Return:
+        EE (of type _EntityConstruction), representing the boolean construction of entities or entity_expressions (hence, recursive)
         '''
+        from mediator.mediatorTools import _EntityConstruction
         assert el.tag in ['and', 'or', 'not'], 'Illegal edoal entity construction: boolean combinations require "and", "or", or "not", but "{}" found'.format(el.tag)
         raise NotImplementedError('Boolean edoal entity constructions not supported (yet, please implement me)')
     
+
     def _parseComposeExpression(self, el=None):
         '''
-        Parse a Composed entity construction (<compose rdf:parseType="Collection">)
+        Parse a Composed entity construction (<compose rdf:parseType="Collection">). 
+        A composed entity construction can represent either a property path construct, as follows:
+        1: <compose> relexpr* propexpr </compose>
+        or a relation path construct, as follows:
+        2: <compose> relexpr* </compose>
         '''
-        assert el.tag == 'compose', 'Illegal edoal entity construction: compose-expression requires "compose", but "{}" found'.format(el.tag)
-        raise NotImplementedError('Composed edoal entity constructions not supported (yet, please implement me)')
+        from mediator.mediatorTools import Path
+        assert el.tag.lower() == ParseAlignment.EDOAL['CMPS'], 'Illegal edoal entity construction: compose-expression requires "compose", but "{}" found'.format(el.tag)
+        print("Found <compose>")
+        
+        path = Path()
+        if len(list(el)) == 0:
+            # If a <compose> element has no children, an empty path construct remains;
+            # An empty path is equivalent to the identity relation, hence, when applied to an object it has as unique value the object itself
+            return path
+        elif el[0].tag.lower() == ParseAlignment.EDOAL['RELN'] or el[0].tag.lower() == ParseAlignment.EDOAL['PROP']:
+            # Assume a path expression, create the path
+            print ("parsing {}".format(el[0]))
+            if el[0].tag.lower() == ParseAlignment.EDOAL['RELN']:
+                for element in list(el[0]):
+                    if element.tag.lower() == ParseAlignment.EDOAL['RELN']:
+                        rel = self._parseRelation(element)
+                        path.append(rel)
+                    elif element.tag.lower() == ParseAlignment.EDOAL['PROP']:
+                        # The final Property element, closing the path
+                        break
+                    else: 
+                        # Found a complex path expression, i.e., the sibling is a (complex) reln-expression in its own right.
+                        # Here, too, recursion is required      
+                        raise NotImplementedError('Complex edoal property constructions ({}) in paths not supported (yet, please implement me)'.format(element.tag))
+            # Now the relation path has been exhausted, hence find the (optional) concluding property
+            if len(path) == 0: 
+                # Relation path was empty, hence make sure we address the right attribute
+                element = el[0]
+            if element.tag.lower() == ParseAlignment.EDOAL['PROP']:
+                # Add the concluding property to the path 
+                prop = self._parseProperty(element)
+                path.append(prop)
+            return path        
+        else: raise AssertionError('Illegal entity element for path constructs: found "{}"'.format(el[0].tag))
 
+    def _parseClosureOperator(self, el=None):
+        '''
+        Parse a closure operation on a Relation
+        Return:
+        EE (of type _EntityConstruction) that represents the closure operators 'inverse', 'symmetric', 'transitive', 'reflexive'
+        '''
+        assert el.tag in ['inverse', 'symmetric', 'transitive', 'reflexive'], 'Illegal edoal entity construction: closure operator expected, but "{}" found'.format(el.tag)
+        raise NotImplementedError('Closure operator "{}" on Relations not supported (yet, please implement me)'.format(el.tag))
+
+    def _parseConstructExpression(self, el=None):
+        '''
+        Parse an entity construction expression, i.e., an expression composed of a combination of entities
+        '''
+        if el.tag in ['and', 'or', 'not']:
+            return self._parseBooleanExpression(el)
+        elif el.tag.lower() == ParseAlignment.EDOAL['CMPS']:
+            return self._parseComposeExpression(el)
+        elif el.tag in ['inverse', 'symmetric', 'transitive', 'reflexive']:
+            return self._parseClosureOperator(el)
+        else:
+            raise AttributeError('An entity expressions cannot contain a "{}" construct'.format(el.tag))
 
     def _parseAttribute(self, asIRI=True, *, element=None, el_attr=None):
         assert element != None and isinstance(element,Element), "Cannot get an attribute from an empty <element>"
@@ -228,83 +293,95 @@ class ParseAlignment():
         
         elif (el.tag.lower() in [ParseAlignment.EDOAL['RELN'], ParseAlignment.EDOAL['RDR'], ParseAlignment.EDOAL['RCDR']]):
             # Found a RELATION expression
-            if (el.get(NSManager.CLARKS_LABELS['RDFABOUT']) == None):
-                # Complex Boolean Property Construct found
-                raise NotImplementedError('Complex Boolean Edoal Relation constructs not supported (yet, please implement me)')
-            else:
-                # Simple Class Entity found.
-                return self._parseRelation(el.get(NSManager.CLARKS_LABELS['RDFABOUT']))
-                    
+            return self._parseRelation(el)
+        
         elif (el.tag.lower() == ParseAlignment.EDOAL['INST']):
             # Found an INSTANCE expression
             return self._parseInstance(el)
         
-        # Checked for all possibilities. If code gets here, an illegal EDOAL construct was detected
-        assert False, 'Illegal Edoal construction: found <{}> element within <entity> element, quitting'.format(el.tag)
+        else: 
+            # Checked for all possibilities. If code gets here, an illegal EDOAL construct was detected
+            assert False, 'Illegal Edoal construction: found <{}> element within <entity> element, quitting'.format(el.tag)
 
     def _parseClass(self, cls_el):
+        '''
+        A <Class> element introduces either a simple Class, a Class Construction, or a Class Restriction
+        '''
         from mediator.mediatorTools import EClass
-        
         if cls_el.tag.lower() == ParseAlignment.EDOAL['CLASS']:
             # <Class> element found
             iriref = self._parseAttribute(element=cls_el, el_attr=NSManager.CLARKS_LABELS['RDFABOUT'])
             if iriref == None:
-                # Complex Boolean Class Construct found
-                return self._parseBooleanExpression(cls_el[0])
+                # Complex Class Construct found
+                assert isinstance(cls_el, list), "A <{}> element requires sub-elements, but none found".format(cls_el.tag)
+                return self._parseConstructExpression(cls_el[0])
             else:
                 # Simple Class Entity found.
                 assert iriref != '', \
                     'An Edoal Class expression requires a value for its "{}" attribute.'.format(NSManager.CLARKS_LABELS['RDFABOUT'])
-                return EClass(entity_iri=iriref)
+                assert cls_el.text == None and len(list(cls_el)) == 0, \
+                    'A simple Edoal Class expression cannot contain other elements or values.'.format(cls_el)
+                return EClass(entity_iri=iriref, nsMgr=self.nsMgr)
         else:
             assert cls_el.tag.lower() in [ParseAlignment.EDOAL['CAOR'], ParseAlignment.EDOAL['CADR'], ParseAlignment.EDOAL['CATR'], ParseAlignment.EDOAL['CAVR']], \
                 'Illegal Edoal construction: found <{}> element as part of <class> expression, quitting'.format(cls_el.tag)
+            # Class Restriction found
             raise NotImplementedError('Edoal Class Restriction constructs found ({}); not supported (yet, please implement me)'.format(cls_el.tag))
 
         
     def _parseProperty(self, prop_el):
+        '''
+        A <Property> element introduces either a simple Property, a Property Construction, or a Property Restriction
+        '''
         from mediator.mediatorTools import EProperty
         if prop_el.tag.lower() == ParseAlignment.EDOAL['PROP']:
             # <Property> element found
-            if prop_el.get(NSManager.CLARKS_LABELS['RDFABOUT']) != None:
-                assert prop_el.get(NSManager.CLARKS_LABELS['RDFABOUT']) != '', \
-                    'An Edoal Property expression requires a value for its "{}" attribute.'.format(NSManager.CLARKS_LABELS['RDFABOUT'])
-                # Simple Property Entity found. 
-                #TODO: Language attribute in Property Entity currently ignored
-                if prop_el.get(ParseAlignment.EDOAL['LANG']) != None: warnings.warn('Not Implemented Yet: <Property> element has got language attribute ({}), ignored'.format(prop_el.get(ParseAlignment.EDOAL['LANG'])))
-                return EProperty(prop_el.get(NSManager.CLARKS_LABELS['RDFABOUT']))
+            iriref = self._parseAttribute(element=prop_el, el_attr=NSManager.CLARKS_LABELS['RDFABOUT'])
+            if iriref == None:
+                # Complex Property Construct found
+                assert len(list(prop_el)) > 0, "A <{}> element requires sub-elements, but none found".format(prop_el.tag)
+                return self._parseConstructExpression(prop_el[0])
             else:
-                assert len(prop_el) > 1, 'Illegal Edoal construction: found empty <property> expression without {}, quitting'.format(NSManager.CLARKS_LABELS['RDFABOUT'])
-                if prop_el[0].tag in ['and', 'or', 'not']:
-                    # Boolean Property expression found
-                    return self._parseBooleanExpression(prop_el[0])
-                elif prop_el[0].tag == 'compose':
-                    # Composite property expression found
-                    return self._parseComposeExpression(prop_el[0])
-                else: raise RuntimeError('Illegal Edoal construction: found <{}> element as part of <property> expression, quitting'.format(prop_el[0].tag))
+                # Simple Property Entity found.
+                assert iriref != '', \
+                    'An Edoal Property expression requires a value for its "{}" attribute.'.format(NSManager.CLARKS_LABELS['RDFABOUT'])
+                assert prop_el.text == None and len(list(prop_el)) == 0, \
+                    'A simple Edoal Property expression cannot contain other elements or values.'.format(prop_el)
+                #TODO: Language attribute in Property Entity currently ignored
+                if prop_el.get(ParseAlignment.EDOAL['LANG']) != None: 
+                    warnings.warn('Not Implemented Yet: <Property> element has got language attribute ({}), ignored'.format(prop_el.get(ParseAlignment.EDOAL['LANG'])))
+                return EProperty(entity_iri=iriref, nsMgr=self.nsMgr)
         else: 
             assert prop_el.tag.lower() in [ParseAlignment.EDOAL['PDR'], ParseAlignment.EDOAL['PTR'], ParseAlignment.EDOAL['PVR']], \
                 'Illegal Edoal construction: found <{}> element as part of <property> expression, quitting'.format(prop_el.tag)
-            # Property Restriction entity found
+            # Property Restriction found
             raise NotImplementedError('Edoal Property Restriction construct ({}) not supported (yet, please implement me)'.format(prop_el.tag))
 
     
     def _parseRelation(self, reln_el):
+        '''
+        Relations correspond to object properties in OWL
+        A <Relation> element introduces either a simple Relation, a Relation Construction, a Relation Closure, or a Relation Restriction
+        '''
         from mediator.mediatorTools import ERelation
         if reln_el.tag.lower() == ParseAlignment.EDOAL['RELN']:
             # <Relation> element found
-            if reln_el.get(NSManager.CLARKS_LABELS['RDFABOUT']) != None:
-                assert reln_el.get(NSManager.CLARKS_LABELS['RDFABOUT']) != '', \
-                    'An Edoal simple Relation expression requires a value for its "{}" attribute.'.format(NSManager.CLARKS_LABELS['RDFABOUT'])
-                # Simple Relation Entity found. 
-                return ERelation(reln_el.get(NSManager.CLARKS_LABELS['RDFABOUT']))
+            iriref = self._parseAttribute(element=reln_el, el_attr=NSManager.CLARKS_LABELS['RDFABOUT'])
+            if iriref == None:
+                # A Relation Construction or Closure found
+                assert len(list(reln_el)) > 0, "A <{}> element requires sub-elements, but none found".format(reln_el.tag)
+                return self._parseConstructExpression(reln_el[0])
             else:
-                # Boolean Relation expression found
-                return self._parseBooleanExpression(reln_el[0])
+                # Simple Relation Entity found.
+                assert iriref != '', \
+                    'A simple Edoal Relation expression requires a value for its "{}" attribute.'.format(NSManager.CLARKS_LABELS['RDFABOUT'])
+                assert reln_el.text == None and len(list(reln_el)) == 0, \
+                    'A simple Edoal Relation expression cannot contain other elements or values.'.format(reln_el)
+                return ERelation(entity_iri=iriref, nsMgr=self.nsMgr)
         else: 
             assert reln_el.tag.lower() in [ParseAlignment.EDOAL['RDR'], ParseAlignment.EDOAL['RCDR']], \
                 'Illegal Edoal construction: found <{}> element as part of <relation> expression, quitting'.format(reln_el.tag)
-            # Property Restriction entity found
+            # Relation Restriction entity found
             raise NotImplementedError('Edoal Relation Restriction construct ({}) not supported (yet, please implement me)'.format(reln_el.tag))
 
         
@@ -316,29 +393,30 @@ class ParseAlignment():
         assert len(inst_el) == 0, 'An Edoal Instance expression cannot have child elements, but found {} children'.format(len(inst_el))
         assert inst_el.get(NSManager.CLARKS_LABELS['RDFABOUT']) != None and inst_el.get(NSManager.CLARKS_LABELS['RDFABOUT']) != '', \
             'An Edoal Instance expression requires an "{}" attribute and value to specify its individual'.format(NSManager.CLARKS_LABELS['RDFABOUT'])
-        return EInstance(inst_el.get(NSManager.CLARKS_LABELS['RDFABOUT']))
+        return EInstance(inst_el.get(NSManager.CLARKS_LABELS['RDFABOUT']), nsMgr=self.nsMgr)
     
     def _parseLiteral(self, lit_el=None):
         assert lit_el != None and lit_el.tag.lower() == ParseAlignment.EDOAL['LIT'], '<Literal> element expected, got <{}>, quitting'.format(lit_el)
         value = lit_el.get(ParseAlignment.EDOAL['STRNG'])
         assert value, 'A <Literal> element requires an "edoal:string" attribute, but got <{}>'.format(lit_el)
         v_type = lit_el.get(ParseAlignment.EDOAL['TYPE'])
-        if v_type == None: value_type = str(ParseAlignment.EDOAL['string'])
+        if v_type == None: value_type = str(ParseAlignment.EDOAL['STRNG'])
         else: value_type = v_type
-        return value, value_type
+        return value, self.nsMgr.asIRI(value_type)
 
     def _parseOperation(self, operation_el=None):
         '''
         Parse the <edoal:Apply> or the <edoal:Aggregate> elements that specify the operation(s) that are implied by this transformation; 
-        Store the results as an mediatorTools.Transformation object
+        Store the results as an mediatorTools.Transformation object.
         '''
         from mediator.mediatorTools import Transformation
+        from transformations import unitconversion
         
-        assert isinstance(operation_el, ET) and (operation_el.tag.lower() == ParseAlignment.EDOAL['APPLY'] or operation_el.tag.lower() == ParseAlignment.EDOAL['AGGR']), \
+        assert isinstance(operation_el, ET.Element) and (operation_el.tag.lower() == ParseAlignment.EDOAL['APPLY'] or operation_el.tag.lower() == ParseAlignment.EDOAL['AGGR']), \
             "<Apply> or <Aggregate> element expected, got <{}>, quitting".format(operation_el)
         operator = operation_el.get(ParseAlignment.EDOAL['OPRTR'])
         assert operator, "an <Apply> or <Aggregate> element requires an 'edoal:operator' attribute, but got '{}'".format(operator)
-        if not self.nsMgr.isClarks(operator): raise AttributeError("Expected iri value for attribute edoal:operator, got {}".format(operator))
+        if not self.nsMgr.isIRI(operator): raise AttributeError("Expected iri value for attribute edoal:operator, got {}".format(operator))
         # Get the operator
         pf, pf_expanded, functionName = self.nsMgr.split(operator)
         # Turn the operator into a callable function
@@ -351,69 +429,87 @@ class ParseAlignment():
         elif pf == 'java:':
             # Java method found
             raise NotImplementedError("Java method functions ({}) not supported (yet, please implement me).".format(operator))
-        elif pf_expanded == self.nsMgr.expand('medtfn'):
+        elif pf == 'medtfn' or pf_expanded == self.nsMgr.expand('medtfn'):
             # Python method in own library found, check if it exists
             fpath, fname = functionName.split('/')
-            assert os.path.isfile('../transformations/' + fpath + 'py'), "Cannot find transformationn lib {}".format('../transformations/' + fpath + 'py')
-            assert fname in dir(fpath), "Cannot find operation {} in transformation lib {}".format(fname, fpath)
+            libModule = '../transformations/' + fpath
+            assert os.path.isfile(libModule + '.py'), "Cannot find transformation library module '{}'".format(libModule + '.py')
+            if fpath == 'unitconversion': 
+                assert fname in dir(unitconversion), "Cannot find operation '{}' in transformation library module '{}'".format(fname, libModule)
+            else: raise NotImplementedError("Transformation library module '{}.py' is available but not supported/imported (yet, please implement me)".format(fpath))
             # Create a Transformation
             transformation = Transformation(python_module=fpath, method_name=fname)
-        else: raise AttributeError("Don't recognise the transformation operator '{}'".format(operator))
+        else: raise AttributeError("Unfamiliar notation for transformation operator: prefix '{}', expanded '{}', function '{}'".format(pf, pf_expanded, functionName))
             
         # Get the operands; note that 'operands' mean: ways to achieve the value(s)
         operands = []
         args = operation_el.find(ParseAlignment.EDOAL['ARGS'])
         assert args != None, "Element <{}> requires subelement <{}:{}> but none found.".format(operation_el.tag, self.nsMgr.asQName(ParseAlignment.EDOAL['ARGS']))
-        if args.get(NSManager.CLARKS_LABELS['RDFPARSTP']) == ParseAlignment.EDOAL['COLL']:
+        if args.get(NSManager.CLARKS_LABELS['RDFPARSTP']).lower() == ParseAlignment.EDOAL['COLL']:
             for value_el in args.iter():
                 if value_el.tag in [ParseAlignment.EDOAL['APPLY'], ParseAlignment.EDOAL['AGGR']]:
                     # Found another operation; resolve this by going recursive on this very same method, i.e., _parseOperation
                     #TODO: handle recursive operation definitions, i.e, operations that have operations as arguments
-                    raise NotImplementedError("Cannot handle paths, i.e., recursive definitions for operations, (yet, please implement me), found {}".format(str(value_el)))
+                    raise NotImplementedError("Cannot handle recursive definitions for operations, (yet, please implement me), found {}".format(str(value_el)))
                 else:
-                    operands.append(self.Value(value_el))
-        else: raise RuntimeError("<{}> expected as attribute to <{}> element".format(ParseAlignment.EDOAL['COLL'], args.tag))
+                    operands.append(self.Value(el=value_el, parse_alignment=self))
+        else: raise RuntimeError("<{}> expected as attribute to <{}> element, got <{}>".format(ParseAlignment.EDOAL['COLL'], args.tag, args.get(NSManager.CLARKS_LABELS['RDFPARSTP'])))
         # Store the operands together with the operation
         transformation.registerOperands(operands)
         return transformation
 
     class Value():
         '''
-        An EDOAL_prefix value expression, representing: 
+        An EDOAL value expression, representing: 
         (1) a literal value
         (2) an individual (instance)
         (3) an attribute expression, i.e, a value that can be reached through application of a Property or Relation
         (4) a value computable by a function from arguments; the arguments are again values 
         '''
         
-        def __init__(self, el=None):
-            from mediator.mediatorTools import Transformation
+        def __init__(self, el=None, parse_alignment=None):
             '''
-            Input: an <entity> element, type xml.etree.ElementTree.Element, that contains a <value> element 
+            Input: 
+            - el (xml.etree.ElementTree.Element): an <entity_expression> element that is, or contains, a <value> element 
+            - parse_alignment (ParseAlignment): 
             '''
+            from mediator import mediatorTools
             assert isinstance(el, Element), "Cannot parse non xml.tree elements, got [{}] of type [{}]".format(el, type(el))
-            assert len(list(el)) > 0, "Found empty element, cannot proceed"
-            assert el[0].tag.lower() in [ParseAlignment.EDOAL['LIT'], ParseAlignment.EDOAL['APPLY'], ParseAlignment.EDOAL['AGGR'], ParseAlignment.EDOAL['INST'], ParseAlignment.EDOAL['PROP'], ParseAlignment.EDOAL['RELN']], "Unexpected element: <{}>".format(el[0].tag)
+            assert isinstance(parse_alignment, ParseAlignment), "Cannot parse a Value element without an alignment, got {}".format(type(parse_alignment))
+
+            # Establish 'el' IS or CONTAINS a Value
+            if len(list(el)) == 0:
+                # 'el' IS value
+                element = el
+            else:    
+                # 'el' CONTAINS value
+                element = el[0]
             
+            assert element.tag.lower() in [ParseAlignment.EDOAL['LIT'], ParseAlignment.EDOAL['APPLY'], ParseAlignment.EDOAL['AGGR'], ParseAlignment.EDOAL['INST'], ParseAlignment.EDOAL['PROP'], ParseAlignment.EDOAL['RELN']], "Unexpected element: <{}>".format(element.tag)            
             # Do all verification on lowercase strings
-            self._entity_type = el[0].tag.lower()
+            self._entity_type = element.tag.lower()
             
             if (self._entity_type == ParseAlignment.EDOAL['LIT']):
-                self.value, self.value_type = ParseAlignment._parseLiteral(self, lit_el=el[0])
+                self.value, self.value_type = parse_alignment._parseLiteral(lit_el=element)
             
             elif (self._entity_type == ParseAlignment.EDOAL['INST']):
-                self.iriref = ParseAlignment._parseInstance(self, inst_el=el[0]).getIriRef()
+                self._iriref = parse_alignment._parseInstance(inst_el=element).getIriRef()
                 
             elif (self._entity_type == ParseAlignment.EDOAL['PROP']):
-                self.iriref = ParseAlignment._parseProperty(el[0]).getIriRef()
+                prop = parse_alignment._parseProperty(element)
+                if isinstance(prop, mediatorTools.Path): self._path = prop
+                else: self._iriref = prop.getIriRef()
                 
             elif (self._entity_type == ParseAlignment.EDOAL['RELN']):
-                self.iriref = ParseAlignment._parseRelation(el[0]).getIriRef()
+                reln = parse_alignment._parseRelation(element)
+                if isinstance(reln, mediatorTools.Path): self._path = reln
+                else: self._iriref = reln.getIriRef()
                 
             elif self._entity_type == ParseAlignment.EDOAL['APPLY'] or self._entity_type == ParseAlignment.EDOAL['AGGR']:
-                self.operator = ParseAlignment._parseOperation(el[0])
-                
-            else: raise RuntimeError('Assumed dead code: analyse why I am here, got {}'.format(self._entity_type))
+                self.operator = parse_alignment._parseOperation(element)
+
+            else: 
+                raise AttributeError('A Value part can only contain a literal, instance, property, relation or a composed entity_expression (Apply or Aggregate), but found {}'.format(self._entity_type))
 
         def getEntityType(self):
             return self._entity_type
@@ -423,9 +519,13 @@ class ParseAlignment():
         def isIndividual(self):
             return self._entity_type == ParseAlignment.EDOAL['INST']
         def isAttrExpression(self):
-            return self._entity_type == ParseAlignment.EDOAL['PROP'] or self._entity_type == ParseAlignment.EDOAL['RELN'] 
+            return self._entity_type == ParseAlignment.EDOAL['PROP'] or self._entity_type == ParseAlignment.EDOAL['RELN']
+        def isClass(self): 
+            return self._entity_type == ParseAlignment.EDOAL['CLASS']
         def isComputable(self):
             return self._entity_type == ParseAlignment.EDOAL['APPLY'] or self._entity_type == ParseAlignment.EDOAL['AGGR']
+        def hasPath(self):
+            return self.isAttrExpression() and hasattr(self, '_path')
         
         def getLiteral(self):
             if self._entity_type == ParseAlignment.EDOAL['LIT']: 
@@ -435,7 +535,7 @@ class ParseAlignment():
         def getIndividual(self):
             if self._entity_type == ParseAlignment.EDOAL['INST']: 
                 return self.getIriRef()
-            else: return None
+            else: return None   
             
         def getAttrExpression(self):
             if self._entity_type in [ParseAlignment.EDOAL['PROP'], ParseAlignment.EDOAL['RELN']]: 
@@ -444,49 +544,76 @@ class ParseAlignment():
         
         def getIriRef(self):
             if self._entity_type in [ParseAlignment.EDOAL['INST'], ParseAlignment.EDOAL['PROP'], ParseAlignment.EDOAL['RELN']]:
-                return self.iriref
+                return self._iriref
             else: return None
 
         def getOperator(self):
             if self._entity_type in [ParseAlignment.EDOAL['APPLY'], ParseAlignment.EDOAL['AGGR']]: 
                 return self.operator
             else: return None
-
+        
+        def getPath(self):
+            if self.hasPath: return self._path
+            else: return None
+            
+        def __str__(self):
+            if self.isLiteral(): result = self.getLiteral()
+            elif self.isIndividual(): result = self.getIndividual()
+            elif self.isAttrExpression(): result = self.getAttrExpression()
+            elif self.isClass(): result = 'Error: found Class as impossible Value construct' 
+            elif self.isComputable(): result = str(self.getOperator())
+            else: return None
+            result = str(result) + ' (' + self.getEntityType() + ')'
+            return result 
+        
+        def __repr__(self):
+            vl_repr = 'Object:' + str(type(self)) + ', entity type:' + self._entity_type
+            vl_repr += '\n\tliteral value:' + str(self.getLiteral())
+            vl_repr += '\n\tindividual value:' + str(self.getIndividual())
+            vl_repr += '\n\tiri value:' + str(self.getIriRef())
+            vl_repr += '\n\tpath:' + str(self.getPath())
+            vl_repr += '\n\toperator value:' + str(self.getOperator())
+            return vl_repr
+            
     def _parseTransform(self, el):
         '''
-        Build an executable mediatorTools.Transformation from the <edoal:Transformation> element.
+        Build an mediatorTools.Transformation from the <edoal:Transformation> element.
+        Returns:
+        1 - An mediatorTools.Transformation, populated with all the relevant details
+        2 - An EDOALparser.Value object that represents the target of the transformation
         '''
-        Tfs = el.findall(str(self.nsMgr.asClarks('edoal:Transformation')))
-        if len(Tfs) > 1: raise RuntimeWarning('One <edoal:Transformation> elements expected inside <edoal:transformation> element, found {} in stead. Only last one will remain!'.format(len(Tfs)))
-        for Transformation in Tfs:
-            direction = Transformation.get(ParseAlignment.EDOAL['DRCTN'])
+        TransformationElmnts = el.findall(str(self.nsMgr.asClarks('edoal:Transformation')))
+        if len(TransformationElmnts) > 1: raise RuntimeWarning('One <edoal:Transformation> elements expected inside <edoal:transformation> element, found {} in stead. Only last one will remain!'.format(len(TransformationElmnts)))
+        for TransformationElmnt in TransformationElmnts:
+            direction = TransformationElmnt.get(ParseAlignment.EDOAL['DRCTN'])
             if (direction == None) or not direction in ["o-", "-o"]:
                 raise RuntimeError('Cannot parse a transformation without directional attribute, <Transformation edoal:direction=" STRING ">')
             # Parse the <edoal:entity1> and <edoal:entity2> elements that define the data transformation
-            val1 = self.Value(Transformation.find(str(self.nsMgr.asClarks('edoal:entity1'))), self.nsMgr)
-            val2 = self.Value(Transformation.find(str(self.nsMgr.asClarks('edoal:entity2'))), self.nsMgr)
-            # Build from the parsed entities a valid and executable transformation, consisting of a source operation (incl. its operands) and the target result entity
+            val1 = self.Value(el=TransformationElmnt.find(str(self.nsMgr.asClarks('edoal:entity1'))), parse_alignment=self)
+            val2 = self.Value(el=TransformationElmnt.find(str(self.nsMgr.asClarks('edoal:entity2'))), parse_alignment=self)
+            # Build from the parsed entities a valid and executable transformation, consisting of a source operation (incl. its operands) and the target tgtEntity entity
             if direction == 'o-':
                 # This indicates that operation and its operands should be found in entity1
                 if val1.getEntityType() in [ParseAlignment.EDOAL['APPLY'], ParseAlignment.EDOAL['AGGR']]:
                     operation = val1.getOperator()
                     if val2.getEntityType() in [ParseAlignment.EDOAL['INST'], ParseAlignment.EDOAL['PROP'], ParseAlignment.EDOAL['RELN']]:
-                        result = val2.getIriRef()
+                        tgtEntity = val2
                     else: raise RuntimeError("Result of transformation cannot be another transformation or literal, got <{}>".format(val2.getEntityType()))
                 else: raise RuntimeError("Direction attribute ({}) specifies operation on <entity1>, but no operation was found".format(direction))
             else: 
                 # This indicates that operation and operands should be found in entity2
+                assert direction == '-o', "Expected '-o' as direction of transformation, but got '{}'".format(direction)
                 if val2.getEntityType() in [ParseAlignment.EDOAL['APPLY'], ParseAlignment.EDOAL['AGGR']]:
                     operation = val2.getOperator()
                     if val1.getEntityType() in [ParseAlignment.EDOAL['INST'], ParseAlignment.EDOAL['PROP'], ParseAlignment.EDOAL['RELN']]:
-                        result = val1.getIriRef()
+                        tgtEntity = val1
                     else: raise RuntimeError("Result of transformation cannot be another transformation or literal, got <{}>".format(val1.getEntityType()))
                 else: raise RuntimeError("Direction attribute ({}) specifies operation on <entity2>, but no operation was found".format(direction))
 
-        return operation, result
+        return operation, tgtEntity
     
     
-    def getCorrespondence(self, cell=None):
+    def _parseCorrespondence(self, cell=None):
         from mediator.mediatorTools import Correspondence
         assert isinstance(cell, Element), "Expected xml.tree element, got type <{}>".format(type(cell))
         # Get the name, i.e., about attribute of <align:Cell rdf:about=[name]> element
@@ -532,7 +659,8 @@ class ParseAlignment():
         # Get the optional Transformation parts, i.e., the <edoal:transformation> element; zero, one or more are acceptable
         tfs = cell.findall(str(self.nsMgr.asClarks('edoal:transformation')))
         for tf in tfs:
-            corr.appendTransform(self._parseTransform(tf))
+            operation, tgtEntity = self._parseTransform(tf)
+            corr.appendTransform(transformation=operation, result_iri=tgtEntity)
         
         return corr
 
@@ -555,7 +683,7 @@ class ParseAlignment():
         # Iterate over all <Cell>...</Cell> parts
         self._corrs = []
         for cell in cells:
-            corr = self.getCorrespondence(cell)
+            corr = self._parseCorrespondence(cell)
             #TODO: Maak van Corrs geen Dict maar een lijst
             self.appendCorrespondence(corr)
         return self._corrs

@@ -1,0 +1,18 @@
+# test query
+PREFIX	ontoNE:	<http://ts.tno.nl/mediator/1.0/examples/ontoNonExistent>
+PREFIX	rdf:	<http://www.w3.org/1999/02/22-rdf-syntax-ns>
+PREFIX  xsd:	<http://www.w3.org/2001/XMLSchema>
+
+SELECT ?p ?t
+WHERE {
+    ?p rdf:type ontoNE:Patient .
+    ?c rdf:type ontoNE:Criterion .
+	?p ontoNE:hasTemp ?t.
+	?c ontoNE:hasUL ?a.
+	FILTER ( 
+		( ?t > ?a ) && 
+		( ?a = 37.0 ) 
+	)
+}
+
+

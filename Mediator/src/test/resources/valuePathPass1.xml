@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE rdf:RDF [
+	<!ENTITY xsd "http://www.w3.org/2001/XMLSchema#">
+	<!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA#">
+	<!ENTITY ontoB	"http://tutorial.topbraid.com/ontoB#">
+	<!ENTITY tno	"http://ts.tno.nl/mediator/1.0/example#">
+	]
+ >
+
+<rdf:RDF xmlns="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+	xmlns:align="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:t="http://ts.tno.nl/mediator/test#"
+	xmlns:tno="http://ts.tno.nl/mediator/instances#">
+	<!-- This is an INVALID edoal file, but only used as placeholder for various testcases for the Value elements --> 
+	<!-- Testcases for the INSTANCE value elements --> 
+	
+	<!-- Irrelevant admin part, but necessary for valid parsing up to the <t:tests>, which are invalid edoal elements -->
+	<Alignment rdf:about="http://ds.tno.nl/ontoA-ontoB/CPR-EQ-CPR">
+		<xml>yes</xml>
+		<dc:creator>PaulBrandt</dc:creator>
+		<dc:date>2015/08/25</dc:date>
+		<method>manual</method>
+		<purpose>TEST DATA (Value parsing: path expression)</purpose>
+		<level>2EDOAL</level>
+		<type>?*</type>
+		<onto1>
+			<Ontology rdf:about="&ontoA;">
+				<formalism>
+					<!-- <location>ontoA.xml</location> -->
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto1>
+		<onto2>
+			<Ontology rdf:about="&ontoB;">
+				<location>resources/nl/test1/ontoB.xml</location>
+				<formalism>
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto2>
+		<!-- Test part -->
+		<t:tests>
+			<t:test rdf:about="valuePathPass1A">
+				<edoal:entity1>
+		 			<edoal:Property>
+						<edoal:compose rdf:parseType="Collection">
+							<edoal:Property rdf:about="&tno;hasProperty" />
+						</edoal:compose>
+					</edoal:Property>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valuePathPass1B">
+				<edoal:entity1>
+		 			<edoal:Property>
+						<edoal:compose rdf:parseType="Collection">
+							<edoal:Relation rdf:about="&tno;hasRelation" /> 
+							<edoal:Property rdf:about="&tno;hasProperty" />
+						</edoal:compose>
+					</edoal:Property>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valuePathPass1C">
+				<edoal:entity1>
+		 			<edoal:Relation>
+						<edoal:compose rdf:parseType="Collection">
+							<edoal:Relation rdf:about="&tno;hasRelation" />
+						</edoal:compose>
+					</edoal:Relation>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valuePathPass1D">
+				<edoal:entity1>
+		 			<edoal:Property>
+						<edoal:compose rdf:parseType="Collection" />
+					</edoal:Property>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valuePathPass1E">
+				<edoal:entity1>
+		 			<edoal:Relation>
+						<edoal:compose rdf:parseType="Collection" />
+					</edoal:Relation>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valuePathPass1F">
+				<edoal:entity1>
+		 			<edoal:Property>
+						<edoal:compose rdf:parseType="Collection" >
+							<edoal:Relation rdf:about="&tno;hasRelation1" /> 
+							<edoal:Relation rdf:about="&tno;hasRelation2" /> 
+							<edoal:Property rdf:about="&tno;hasProperty" />
+						</edoal:compose>
+					</edoal:Property>
+				</edoal:entity1>
+			</t:test>
+		</t:tests>
+	</Alignment>
+</rdf:RDF>

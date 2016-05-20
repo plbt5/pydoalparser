@@ -92,7 +92,9 @@ class NSManager():
                                     # Found a trailing '#', which indicates an invalid iri_path
                                     return False
                                 # Found one single '#', only when its last part doesn't carry a '/', it is a valid iri
-                                return not ('/' in hashparts[-1])
+                                #TODO: Check whether an iri cannot have a '/' after the '#', now ignore this rule
+#                                 return not ('/' in hashparts[-1])
+                                return True
         return False
 
     @classmethod
@@ -149,6 +151,9 @@ class NSManager():
                 prefix_expansion = self.base 
             else:
                 prefix_expansion = self.expand(prefix)
+        elif self.isIRI(string):
+            prefix, iri_path = self._splitIRI(string)
+            prefix_expansion = self.expand(prefix)
         else: raise NotImplementedError("Cannot split prefix_expansion {} (yet; please implement me)".format(string))
         return prefix, prefix_expansion, iri_path
     
@@ -181,14 +186,20 @@ class NSManager():
         else: raise Exception('Cannot bind prefixes from {}'.format(type(rq)))
     
     def _splitIRI(self, in_string):
+        '''
+        Split an IRI and return its function_path and the advancing base-url, the latter in its prefix
+         form as it can be found in the namespace table.
+        '''
         assert self.isIRI(in_string), "Expected to split an IRI, but got <{}>".format(in_string)
         if '#' in in_string:
             # Assume one '#' character only
             ns, lbl = in_string.rsplit('#', maxsplit=1)
-            return self.getPrefix(ns+'#'), lbl
+            pf = self.getPrefix(ns+'#')
+            return pf, lbl
         elif '/' in in_string:
             ns, lbl = in_string.rsplit('/', maxsplit=1)
-            return self.getPrefix(ns+'/'), lbl
+            pf = self.getPrefix(ns+'/')
+            return pf, lbl
         else: raise NotImplementedError('Cannot turn straight IRI ({}) into a QName notation (yet, please implement me with rfc3987 pkge).'.format(in_string))
     
     def asQName(self, in_string):
@@ -228,6 +239,7 @@ class NSManager():
             if prefix == '': prefix = None
             if prefix in self.nsmap:
                 return str("{"+ self.nsmap[prefix] + "}" + name)
+            print(str(self.nsmap))
             raise RuntimeError('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(in_string))
         elif self.isIRI(in_string):
             ns, lbl = self._splitIRI(in_string)

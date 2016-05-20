@@ -34,7 +34,7 @@ class TestNSManager(unittest.TestCase):
 
     def testSplitIRI(self):
         print('Testcase {}\n\ttesting {} ..'.format(self.__class__.__name__,inspect.currentframe().f_code.co_name), end="", flush=True)
-        assert ('align',"Alignment") == self.nsMgr._splitIRI("http://knowledgeweb.semanticweb.org/heterogeneity/alignment#Alignment")
+        assert ('align',"Alignment") == self.nsMgr._splitIRI("http://knowledgeweb.semanticweb.org/heterogeneity/alignment#Alignment"), "Unexpectedly got '{}'".format(self.nsMgr._splitIRI("http://knowledgeweb.semanticweb.org/heterogeneity/alignment#Alignment"))
         assert ('med',"Alignment") == self.nsMgr._splitIRI("http://ds.tno.nl/mediator/1.0/Alignment")
         with self.assertRaises(AssertionError): 
             self.nsMgr._splitIRI("http:Alignment")
@@ -143,6 +143,7 @@ class TestNSManager(unittest.TestCase):
         assert self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans#iri_path')
         assert self.nsMgr.isIRI('http://knowledgeweb.semanticweb.org/heterogeneity/alignment#Alignment')
         assert self.nsMgr.isIRI('http://ds.tno.nl/mediator/1.0/Alignment')
+        assert self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans#subpath/path')
         
         assert not self.nsMgr.isIRI('preamb://authority.fives/iri_expans/iri_path')
         assert not self.nsMgr.isIRI('preamb://authority.l/iri_expans/iri_path')
@@ -154,7 +155,6 @@ class TestNSManager(unittest.TestCase):
         assert not self.nsMgr.isIRI('{preamb://authority.org/iri_expans/iri_expans#}iri_path')
         assert not self.nsMgr.isIRI('{preamb://authority.org/iri_expans/iri_expans/}iri_path')
         assert not self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expan/iri_path#')
-        assert not self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans#iri/path')
         assert not self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans#iri_path/')
         assert not self.nsMgr.isIRI('preamb://authority.org/iri_expans/iri_expans/iri_path/')
         print(". done")
@@ -224,8 +224,6 @@ class TestNSManager(unittest.TestCase):
             pf, prefix_expansion, iri_path = self.nsMgr.split('a>a')
         with self.assertRaises(NotImplementedError): 
             pf, prefix_expansion, iri_path = self.nsMgr.split('a?a')
-        with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('http://knowledgeweb.semanticweb.org/heterogeneity/alignment#path')
         print(". done")
 
         

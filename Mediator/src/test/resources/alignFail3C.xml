@@ -77,6 +77,84 @@
 			</Cell>
 		</map>
 		<map>
+			<Cell rdf:about="MappingRule_12">
+				<!-- Testcase: non-empty simple <class> element -->
+				<entity1>
+					<edoal:Class rdf:about="&ontoA;unEquivanox">appel</edoal:Class>
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_13">
+				<!-- Testcase: non-empty simple <property> element -->
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox">appel</edoal:Property>
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_14">
+				<!-- Testcase: non-empty simple <relation> element -->
+				<entity1>
+					<edoal:Relation rdf:about="&ontoA;unEquivanox">appel</edoal:Relation>
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_15">
+				<!-- Testcase: non-empty simple <class> element -->
+				<entity1>
+					<edoal:Class rdf:about="&ontoA;unEquivanox"><test></test></edoal:Class>
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_16">
+				<!-- Testcase: non-empty simple <property> element -->
+				<entity1>
+					<edoal:Property rdf:about="&ontoA;unEquivanox"><test></test></edoal:Property>
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
+			<Cell rdf:about="MappingRule_17">
+				<!-- Testcase: non-empty simple <relation> element -->
+				<entity1>
+					<edoal:Relation rdf:about="&ontoA;unEquivanox"><test></test></edoal:Relation>
+				</entity1>
+				<entity2>
+					<edoal:Property rdf:about="&ontoB;OneEq" />
+				</entity2>
+				<measure rdf:datatype="&xsd;float">1.0</measure>
+				<relation>Equivalence</relation>
+			</Cell>
+		</map>
+		<map>
 			<Cell rdf:about="MappingRule_2">
 				<entity1>
 					<edoal:Property rdf:about="&ontoA;unEquivanox" />

@@ -40,9 +40,9 @@ from utilities.namespaces import NSManager
     
 class Context():
     '''
-    Represents the sparql context of <entity1> that is mentioned in the EDOAL correspondence.
+    Represents the sparql context of (source) <entity>s (a single entity, NOT an entity *expression*) that is mentioned in the EDOAL correspondence.
     It builds the relationship between:
-    1 - the <entity1> and the URIRef element(s) in the Query Pattern of the sparql tree, and 
+    1 - the source <entity> and the URIRef element(s) in the Query Pattern of the sparql tree, and 
     2 - and the restrictions that yield in the Query Modifiers of the sparql tree.
     * 
     '''
@@ -73,8 +73,8 @@ class Context():
         class QPTripleRef():
             '''
             A QPTripleRef contains the association between one Correspondence of an Alignment, and the sparql tree. From the latter,
-            it contains (i) the triples that are to be translated, (ii) the position of the entity_iriref in question in the triple, and (iii) the
-            variables that are bound in this triples.
+            it contains (i) all triples that the Correspondence is about, and hence, are to be translated, (ii) the position of the entity_expr 
+            in question in the triple, and (iii) the variables that are bound in this triples.
             '''
             
             def __init__(self, about=None):
@@ -135,7 +135,7 @@ class Context():
             
             def considerBinding(self, qpnode):
                 # We assume that we only need to take into consideration the variables in order to be able to follow through with the translations, hence
-                # the PNAME's, i.e., iri's that are bound to this entity_iriref, are assumed to be taken care of as another EDOAL alignment map
+                # the PNAME's, i.e., iri's that are bound to this entity_expr, are assumed to be taken care of as another EDOAL alignment map
 #                 if type(qpnode).__name__ in ['VAR1', 'VAR2', 'PNAME_LN']:
                 if type(qpnode).__name__ in ['VAR1', 'VAR2']:
                     if (not str(qpnode) in self.binds) and (not qpnode == self.about):
@@ -157,7 +157,6 @@ class Context():
                 return(result)
             
         def __init__(self, *, entity_expression, sparql_tree, nsMgr):
-#             assert isinstance(entity_expression, EntityExpression) and isinstance(sparql_tree, ParseStruct)
             self.represents = '' # (EntityExpression) the EDOAL entity_iri (Class, Property, Relation, Instance) name;
                                  # This is in fact unnecessary because this is already stored in the higher Context class
             self.qptRefs = []    # List of (QPTripleRef)s, i.e., implicit Query Pattern nodes that address the Entity Expression
@@ -172,8 +171,8 @@ class Context():
             self.sparqlTree = sparql_tree
             # Now find the [PrefixDecl] nodes
             #TODO: Remove this after refactoring to locally valid namespace expansion etc. in SPARQLStruct
-            prefixDecls = sparql_tree.searchElements(element_type=sparqlparser.PrefixDecl)
-            _, src_iriref, _ = nsMgr.split(entity_expression.entity_iriref)
+            prefixDecls = sparql_tree.searchElements(element_type=sparqlparser.SPARQLParser.PrefixDecl)
+            _, src_iriref, _ = nsMgr.split(entity_expression.entity_expr)
             for prefixDecl in prefixDecls:
                 ns_prefix, ns_iriref = str(prefixDecl.prefix)[:-1], str(prefixDecl.namespace)[1:-1]
                 if ns_iriref == src_iriref: 
@@ -331,161 +330,197 @@ class Context():
 
 
     class VarConstraints():
+        '''
+        The use of variables in the LIMIT clause of the sparql query is to bind constraints to the individuals of an entity. Constraints are specified
+        by value logic expressions, the entity individuals by triple matches from the WHERE clause. This class VarConstraints is designed to relate, through
+        the use of the variables, the entities with the constraints. Each class object represents the characteristics on how one variable is being bound to 
+        the constraints. These characteristics are determined by inspection of the parsed tree.
+        '''
                 
         def isBoundBy(self, qp_node):
             '''
             Utility function to establish whether a sparql tree node that occurs as BGP in the Query Pattern subtree, binds a variable that is part 
             of a sparql tree node that occurs in the Filter subtree as value logic tuple. 
             '''
-            return(self.boundVar in qp_node.binds)
+            return(self._boundVar in qp_node.binds)
                 
         
-        class ValueLogicNode():
+        class ValueLogicExpression(dict):
+            '''
+            A value logic expression represents a single comparison as can be found in the FILTER clause, e.g., (?t > 36.0), or (?p = ?q). Consequently, 
+            it has three attributes, the varRef, the comparator, and the restriction. From a Correspondence perspective, this clause is used to express
+            the entity restriction, as follows: 
+            1. varRef (string): the name of the variable that is being used. Note that the entity that the variable refers to, represents a Path
+            2. comparator (string)  : the comparator that is being used to establish the truth value of the boolean expression. 
+            3. restriction (string) : the value that acts as restriction for the varRef. This can either be a Value restriction, Type restriction or 
+                Multiplicity restriction [formulae 2.23]. 
+            '''
             
-            def __init__(self, valLogs, f):
-                for v in valLogs:
-#                     print("Elaborating on valueLogic: ", v)
-                    pp = v.getAncestors()
-                    prevP = None
-                    operand = None
-                    operation = None
-                    varFirst = None
-                    for p in pp:
-                        cc = p.getChildren()
-                        if len(cc) > 1:
-                            # This is a relevant branch since this parent has more children.
-                            pType = type(p).__name__
-#                             print("<{}> is a [{}]".format(p, pType))
-                            if pType == 'BuiltInCall':
-                                warnings.warn("Ignoring constraint on [{}]: not yet implemented".format(p))
-                                break
-                            elif pType == 'RelationalExpression':
-#                                 print('Build [{}]'.format(pType))
-                                #TODO: Add the possibility for chained variables, i.e., [?t > ?v]
-                                for c in cc:
-#                                     print(">>\t<{}> is a [{}]".format(c, type(c).__name__))
-                                    cType = type(c).__name__
-                                    if c == prevP:
-                                        # This child is itself, hence determine (var operation operand) versus 
-                                        # (operand operation var) by determining if the operand has been addressed already
-                                        varFirst = (operand == None)
-                                    elif cType == 'NumericExpression':
-                                        # This child is the top of branch leading to the operand; 
-                                        # The operand is either a value, e.g., DECIMAL, or a variable
-                                        atom = c.descend()
-                                        if atom == None: 
-                                            warnings.warn("QM node unexpectedly appears parent of more than one atomic path. Found <{}> with siblings. Hell will break loose".format(atom))
-                                        aType = type(atom).__name__
-                                        if aType in ['INTEGER', 'DECIMAL', 'DOUBLE', 'HEX']:
-                                            operand = c
-                                        elif aType == 'VAR1' or aType == 'VAR1':
-                                            warnings.warn('Chained variables in Query Modifiers not yet supported. Mediation will be bogus.')
-                                            operand = c # although this is incorrect, make that the program will not crash as result of missing elements.
-                                        else: RuntimeError("Did not expect [{}] node in Query Modifier ({}), VAR's or values only.".format(aType, atom))
-                                    else: operation = c
-                                self.append({'varFirst': varFirst, 'operation': operation, 'operand': operand})
-                                break
-                        prevP = p
+            def __init__(self, variable_node=None):
+                '''
+                Creating a ValueLogicExpression is achieved by parsing the query, starting at the [Var] node.  
+                input: The node in the sparql tree that represents the variable
+                The created object is a Dictionary with entries {'varRef': varRef, 'comparator': comparator, 'restriction': restriction}
+                '''
+                assert isinstance(variable_node, ParseStruct) and type(variable_node).__name__ == 'Var', \
+                    "Cannot create a Value Logic Constraint without a 'Var' to start with, got '{}'".format(type(variable_node))
+#                 print("Elaborating on valueLogic {} ({}) in tree: ".format(variable_node, type(variable_node)))
+#                 print(variable_node.dump())
+                # Get the list of ancestors of this node in the tree
+                ancestors = variable_node.getAncestors()
+                prevAncestor = None
+                restriction = None
+                comparator = None
+                varRef = None
+                for ancestor in ancestors:
+                    # For each ancestor, consider all its children.
+                    cc = ancestor.getChildren()
+                    if len(cc) > 1:
+                        # This is a relevant branch since this parent has more children.
+                        pType = type(ancestor).__name__
+#                         print("parent <{}> is of type [{}]".format(ancestor, pType))
+#                         print(ancestor.dump())
+                        if pType == 'BuiltInCall':
+                            raise NotImplementedError("Found '{}', hence a Type Constraint, which is not implemented (yet: be my guest)".format(variable_node))
+                            break
+                        elif pType == 'RelationalExpression':
+#                             print('Build [{}]'.format(pType))
+                            #TODO: Add the possibility for chained variables, i.e., [?t > ?v]
+                            for c in cc:
+#                                 print(">>\t'{}' is a [{}]:".format(c, type(c).__name__))
+#                                 print(c.dump())
+                                cType = type(c).__name__
+                                if c == prevAncestor:
+                                    # Since we go up and down the branch, we found the original value_node itself, that, therefore, is the varRef
+                                    atom = c.descend()
+                                    if atom == None: 
+                                        AttributeError("QM node unexpectedly appears parent of more than one atomic path. Found <{}> with siblings. Hell will break loose, hence quitting".format(atom))
+                                    varRef = atom
+                                elif cType == 'NumericExpression':
+                                    # This child is the top of branch leading to the restriction; 
+                                    # The restriction is either a value, e.g., DECIMAL, or a variable
+                                    atom = c.descend()
+                                    if atom == None: 
+                                        AttributeError("QM node unexpectedly appears parent of more than one atomic path. Found <{}> with siblings. Hell will break loose, hence quitting".format(atom))
+                                    aType = type(atom).__name__
+                                    if aType in ['INTEGER', 'DECIMAL', 'DOUBLE', 'HEX']:
+#                                         print("NumericExpression as {} found".format(aType)) 
+                                        restriction = atom
+                                    elif aType == 'VAR1' or aType == 'VAR1':
+                                        raise NotImplementedError('Chained variables in Query Modifiers not supported (yet, please implement me).')
+                                        # One aspect of implementing this feature is:
+#                                         restriction = atom 
+                                        #TODO: (Chained variables in constraint) However, the translation and transformation is much harder
+                                    else: AttributeError("Did not expect [{}] node in Query Modifier ({}), VAR's or Values only.".format(aType, atom))
+                                elif str(c) in ['<', '<=', '>', '>=', '=', '!=']:
+#                                     print("Comparator {} found".format(c)) 
+                                    comparator = c
+                                else:
+                                    # Unknown 
+                                    raise AttributeError("Unknown attribute: '{}'".format(c))
+#                             print("ValueLogicExpression complete: ({} {} {})".format(varRef, comparator, restriction))
+                            self.update({'varRef': varRef, 'comparator': comparator, 'restriction': restriction})
+                            break
+                        else:
+                            warnings.warn("Found '{}' element unexpectedly, ignoring".format(pType))
+                    # This parent has only one child, which makes it an irrelevant node: only atomic or branching nodes are relevant; those
+                    #        in between are not. But this node may show to be an interesting one, hence store it temporarily and continue with next parent.
+                    prevAncestor = ancestor
 
 
-        def __init__(self, sparql_tree, sparqle_var):
-            #TODO: Consider the necessity of the two object variables boundVar & entity_iri
-            self.boundVar = ''       # (String) the name of the [Var] that has been bounded in the QueryPatternTripleAssociation; Necessary?? 
-            self.entity_iriref = ''         # (String) the entity_iri expression that this var has been bound to
-            self.valueLogics = []    # list of (ValueLogicNode)s, each of them formulating one single constraint, e.g., (?var > DECIMAL)
+        def __init__(self, sparql_tree=None, sparql_var_name=''):
+            '''
+            Input:
+            - sparql_tree: (sparqlparser.ParseStruct) : The parsed tree must contain at least one 'FILTER' element, which must not be the tree root.
+            - sparql_var: (string)    : The name of the sparql variable, including the question mark.
+            Result: A class that contains the following attributes:
+            - _boundVar: (string) : the name of the variable
+            - _srcPath: the iriref of the path expression that leads to the Edoal <Property> or <Relation> element that this sparql variable is bound to
+            - _valueLogicExprList: (list) : a list of (ValueLogicExpression) that represent the constraints that apply to this variable. Each element in the
+                list represents a singe constraint, e.g., "?var > 23.0", or "DATATYPE(?var) = '<iripath><class_name>'"
+            '''
             
-            if sparql_tree == None or sparqle_var == None:
-                raise RuntimeError("Both parsed sparql tree and sparql variable required.")
-            filterElements = sparql_tree.searchElements(element_type=sparqlparser.Filter)
-            assert len(filterElements) > 1, "Do not support more than one FILTER clauses in SPARQL (yet, please implement me)"
+            #TODO: Consider the necessity of the two object variables _boundVar & entity_iri
+            self._boundVar = ''       # (String) the name of the [Var] that has been bounded in the QueryPatternTripleAssociation; Necessary?? 
+            self._srcPath = ''        # (mediatorTools.Path) the entity_iri expression that this var has been bound to
+            self._valueLogicExprList = []    # list of (ValueLogicExpression)s, each of them formulating one single constraint, e.g., (?var > DECIMAL)
+            
+            assert isinstance(sparql_tree, sparqlparser.ParseStruct), "Parsed sparql tree expected, got {}".format(type(sparql_tree))
+            assert sparql_tree != None or sparql_var_name != '', "Both parsed sparql tree and sparql variable required, but none found."
+            filterElements = sparql_tree.searchElements(label="constraint")
+            assert len(filterElements) == 1, "Do not support more than one FILTER clauses ({} found) in SPARQL (yet, please implement me)".format(len(filterElements))
             if filterElements == []:
                 warnings.warn('Cannot find [FILTER] node in the sparql tree; constraint other than type <Filter> not yet implemented')
             else:
-                # Find the [Var]-node as part of a [ValueLogical] in this part of the tree
-                nodeType = sparqlparser.Var   
+                nodeType = sparqlparser.SPARQLParser.Var   
                 for fe in filterElements:
-    #                 print("Searching for <{}> as type <{}> in {}: ".format(sparqle_var, nodeType, fe))
-                    varElements = fe.searchElements(element_type=nodeType, value=sparqle_var)
+#                     print("Searching for <{}> as type <{}> in {}: ".format(sparql_var_name, nodeType, fe))
+                    # Find the [ValueLogical](s) in this FILTER clause that address the variable, by searching for nodes: 
+                    # 1 - of type 'sparqlparser.SPARQLParser.Var', and 
+                    # 2 - having a value that equals the variable name
+                    # The variable can occur in more than one value logic expression, hence expect at least one node
+                    varElements = fe.searchElements(element_type=nodeType, value=sparql_var_name)
                     if varElements == []:
-                        warnings.warn('Cannot find <{}> as part of a [{}] expression in <{}>'.format(sparqle_var, nodeType, fe))
+                        warnings.warn('Cannot find <{}> as part of a [{}] expression in <{}>'.format(sparql_var_name, nodeType, fe))
                     else:
-                        self.boundVar = sparqle_var
-                        for v in varElements:
+                        # We have found at least one such value logic expression, hence start to build it
+                        self._boundVar = sparql_var_name
+                        for ve in varElements:
+#                             print ("var element:", ve)
+                            vlExpr = self.ValueLogicExpression(variable_node=ve)
+#                             print ("value logic expression: {}".format(vlExpr))
+                            if vlExpr: self._valueLogicExprList.append(vlExpr)
         #                     print("Elaborating on valueLogic: ", v)
-                            pp = v.getAncestors()
-                            topOfBranch = None
-                            operand = None
-                            operation = None
-                            varFirst = None
-                            for p in pp:
-                                pType = type(p).__name__
-                                children = p.getChildren()
-                                if len(children) == 1:
-                                    # This is ancestor is not a branching node. Skip to the next ancestor but remember this node that becomes, eventually,
-                                    # the top node of this branch
-                                    topOfBranch = p
-    #                             print("<{}> is a [{}]".format(p, pType))
-                                elif pType == 'BuiltInCall':
-                                    warnings.warn("Ignoring constraint on [{}]: not yet implemented".format(p))
-                                    break
-                                elif pType == 'RelationalExpression':
-    #                                 print('Build [{}]'.format(pType))
-                                    #TODO: Add the possibility for chained variables, i.e., [?t > ?v]
-                                    self.valueLogics.append(p)
-                                    break
-    #                             elif pType == 'ConditionalAndExpression':
-    #                                 for c in children:
-    #                                     print(">>\t<{}> is a [{}]".format(c, type(c).__name__))
-    #                             else: 
-    #                                 for c in children:
-    #                                     print(">>\t<{}> is a [{}]".format(c, type(c).__name__))
-                                else: raise NotImplementedError('Found [{}] ({}) as ancestor to [{}]; this needs further study...'.format(p,pType,v))
-        #                         if pType == 'RelationalExpression':
-        #                             pass
-        #                         elif pType == 'ValueLogical':
-        #                             print("<{}> is a [{}] with length <{}>".format(p, pType, len(p)))
-        #                             pass
-    #                 if len(self.valueLogics) > 0:
-    #                     self.render()
-    #                 else: print('No applicable Query Modifiers found for <{}>'.format(sparqle_var))
+                    if len(self._valueLogicExprList) == 0:
+                        warnings.warn('No applicable constraints (Query Modifiers) found for <{}>'.format(sparql_var_name))
 
+        def getValueLogicExpressions(self):
+            return self._valueLogicExprList
+        
+        def getBoundVar(self):
+            return self._boundVar
+        
         def __str__(self):
-            result = '( '
-            for vl in self.valueLogics:
-                result += str(vl) + " ) "
+            result = ''
+            for vl in self._valueLogicExprList:
+                result += '( '+ str(vl) + ' )   '
             return(result)
 
         def render(self):
             print('constraints: \n' + self.__str__())
 
 
-    def __init__(self, entity_type=sparqlparser.iri, *, entity_expression, sparqlTree, nsMgr ):
+    def __init__(self, entity_type=sparqlparser.SPARQLParser.iri, *, entity_expression, sparqlTree, nsMgr ):
         '''
         Generate the sparql context that is associated with the EntityExpression. If no entity_type is given, assume an IRI type.
-        Returns the context, with attributes:
-        * entity_iri       : (mediator.Correspondence.EntityExpression) the subject EntityExpression
-        * sparqlTree   : (ParseStruct) the parsed sparql-query-tree
-        * qpTriples    : the qptRefs from the sparql Query Pattern that are referred to in the EntityExpression
-        * constraints   : the qptRefs from the sparql Query Pattern FILTER that constrain the variables bound in the qpTriples 
+        Returns the context, contained in attributes:
+        * entity_expr  : (mediator.mediatorTools.EntityExpression) the subject EntityExpression that this context is about (from input)
+        * parsedQuery  : (ParseStruct) the parsed sparql-query-tree that requires translation (from input)
+        * qptAssocs    : the query pattern triples in the sparql query that are associated by the subject EntityExpression
+        * constraints  : a list of the bound variables that occur in the qptAssocs, and for which a constraint in the sparql Query Pattern FILTER exists
         
         '''
-        self.entity_iriref = ''  # (EntityExpression) The EDOAL entity (Class, Property, Relation, Instance) name (as IRI) this context is about;
+        self.entity_expr = ''    # (mediator.mediatorTools.EntityExpression) The EDOAL entity_expression, i.e., one of (Class, Property, Relation, Instance) or their combinations, this context is about;
         self.parsedQuery = ''    # (parser.grammar.ParseInfo) The parsed query that is to be mediated
-        self.qpTriples = []      # List of (QueryPatternTripleAssociation)s, representing the contextualised triples that are addressing the EDOAL entity_iri (self.about)
-        self.constraints = {}    # Dictionary, indexed by the bound variables that occur in the qpTriples, as contextualised Filters.
+        self.qptAssocs = []      # List of (QueryPatternTripleAssociation)s, representing the triples that are addressing the subject entity_expression
+        self.constraints = {}    # Dictionary, indexed by the bound variables that occur in the qptAssocs, as contextualised Filters.
         self.nsMgr = None        # (namespaces.NSManager): the current nsMgr that can resolve any namespace issues of this mediator 
         
 #         assert isinstance(entity_expression, Mediator.EntityExpression) and isinstance(sparqlTree, ParseStruct)
-        assert isinstance(sparqlTree, ParseStruct) and entity_expression.__class__.__name__ == 'EntityExpression' and isinstance(nsMgr, NSManager)
+        assert isinstance(sparqlTree, ParseStruct) and isinstance(nsMgr, NSManager), "Parsed sparql tree and namespace mgr required"
+        assert entity_expression.__class__.__name__ == 'EntityExpression', "Cannot create context without subject entity expression"
+        
+        if entity_expression.isEntityExpression(): raise NotImplementedError("Cannot process entity expressions yet, only simple entities. Got {}".format(entity_expression.getType()))
 
         self.nsMgr = nsMgr
-        self.entity_iriref = entity_expression
+        print("entity expr: {}".format(entity_expression))
+        self.entity_expr = entity_expression.getIriRef()
         #TODO: process other sparqlData than sparql query, i.e., rdf triples or graph, and sparql result sets
         self.parsedQuery = sparqlTree
         if self.parsedQuery == []:
             raise RuntimeError("Cannot parse the query sparqlData")
         
-        eePf, eeIri, eeTag = self.nsMgr.split(entity_expression.entity_iriref)
+        eePf, eeIri, eeTag = self.nsMgr.split(self.entity_expr)
         src_qname = eePf + ':' + eeTag
         
         # 1: Find the qptRefs for which the context is to be build, matching the Entity1 Name and its Type
@@ -494,21 +529,14 @@ class Context():
             raise RuntimeError("Cannot find element <{}> of type {} in sparqlData".format(src_qname, entity_type))
         
         # 2: Build the context
-        self.qpTriples = []         # List of (QPTripleRef)s that address the edoal entity_iri.
+        self.qptAssocs = []         # List of (QPTripleRef)s that address the edoal entity_iri.
 #         self.qmNodes = {}           # a dictionary, indexed by the qp.about, i.e., the name of the EntityExpression, of lists of constraints 
                                     # that appear in the Query Modifiers clause, each list indexed by the variable name that is bound
         # 2.1: First build the Query Pattern Triples
         # 2.1.1: Find the top of the query's Query Pattern
-#         qryPatterns = self.parsedQuery.searchElements(element_type=parser.WhereClause)
-#         if qryPatterns == []:
-#             raise RuntimeError("Cannot find WHERE-clause")
-#         elif len(qryPatterns) > 1:
-#             raise NotImplementedError("Cannot yet process more than one WHERE-clause")
-#         
-#         for p in qryPatterns: 
-#             print(p.dump())
+
             
-        # 2.1.2: For each node, find the qpTriples
+        # 2.1.2: For each node, find the qptAssocs
         for qrySrcNode in srcNodes:
             # Find and store the QueryPatternTripleAssociation of the main Node
 #             print("Building context for <{}>".format(qrySrcNode))
@@ -516,7 +544,7 @@ class Context():
             #TODO: Probably rq is too high in the tree - consider a lower node such as [WhereClause] (i.e., qryPatterns) or [GroupGraphPattern] 
             qpt = self.QueryPatternTripleAssociation(entity_expression=entity_expression, sparql_tree=self.parsedQuery, nsMgr=self.nsMgr)
             qpt.addQPTRef(qrySrcNode)
-            self.qpTriples.append(qpt)
+            self.qptAssocs.append(qpt)
 #             print("QP triple(s) determined: \n\t", str(qpt))
 #             print("Vars that are bound by these: ")
 #             for n in qpt.qptRefs:
@@ -531,16 +559,16 @@ class Context():
         
 #         filterTop = list(qryPatterns[0].searchElements(element_type=GraphPatternNotTriples))[0]
         #TODO: Assumed one [GraphPatternNotTriples] (hence, list(...)[0])  
-        filterTop = self.parsedQuery.searchElements(element_type=sparqlparser.GraphPatternNotTriples)
+        filterTop = self.parsedQuery.searchElements(element_type=sparqlparser.SPARQLParser.GraphPatternNotTriples)
         if filterTop == []:
             raise RuntimeError("Cannot find Query Modifiers clause (Filter)")
 #             print('Top for QM part of tree:')
 #             print(filterTop.dump())
         # 2.2.2 - for each bound variable in the qp, collect the ValueLogics that represent its constraint
-        for qpt in self.qpTriples:
+        for qpt in self.qptAssocs:
             for qpNode in qpt.qptRefs:
                 for var in qpNode.binds:
-                    # Find the ValueLogicNode that addresses this variable
+                    # Find the ValueLogicExpression that addresses this variable
                     self.constraints[str(var)] = []
 #                     print("Elaborating on var <{}>".format(str(var)))
 #                     print('='*30)
@@ -552,8 +580,8 @@ class Context():
 
 
     def __str__(self):
-        result = "<entity1>: " + str(self.entity_iriref) + "\nhas nodes:"
-        for qpt in self.qpTriples:
+        result = "<entity>: " + str(self.entity_expr) + "\nhas nodes:"
+        for qpt in self.qptAssocs:
             result += "\n-> " + str(qpt) 
         result += "\n"
         for vc in self.constraints:
@@ -567,6 +595,6 @@ class Context():
             
     def getSparqlElements(self):
         result = []
-        print("NOT IMPLEMENTED: Searching for sparql elements that are associated with <{}>".format(self.entity_iriref))
+        print("NOT IMPLEMENTED: Searching for sparql elements that are associated with <{}>".format(self.entity_expr))
         return(result)
   

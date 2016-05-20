@@ -5,15 +5,24 @@ Created on 21 apr. 2016
 '''
 import unittest
 from test.mytestexceptions import TestException
-from mediator.EDOALparser import ParseAlignment
 import xml.etree.ElementTree as etree
 from utilities.namespaces import NSManager
+from mediator.mediatorTools import EClass
+import warnings
 
 
-class TestNSManager(unittest.TestCase):
-
+class TestEDOALParser(unittest.TestCase):
 
     def setUp(self):
+        from mediator.EDOALparser import ParseAlignment
+        ns = {'rdf': "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+              'xsd': "http://www.w3.org/2001/XMLSchema#",
+              'align':"http://knowledgeweb.semanticweb.org/heterogeneity/alignment#",
+              'edoal':'http://ns.inria.org/edoal/1.0/#',
+              't'   : 'http://ts.tno.nl/mediator/test#'
+              }
+        self.nsMgr = NSManager(ns, "http://ts.tno.nl/mediator/test#")
+        print(str(self.nsMgr))
         self.testCases = {}
         # Edoal parsing tests
         '''
@@ -75,26 +84,26 @@ class TestNSManager(unittest.TestCase):
                     'corrs': [
                         {
                             'name' : "MappingRule_0", 
-                            'ent1' : {'et': ParseAlignment.EDOAL['CLASS'], 'eir' : "{http://tutorial.topbraid.com/ontoA#}unEquivanox"},
-                            'ent2' : {'et': ParseAlignment.EDOAL['CLASS'], 'eir' : "{http://tutorial.topbraid.com/ontoB#}OneEq"},
+                            'ent1' : {'et': ParseAlignment.EDOAL['CLASS'], 'eir' : "http://tutorial.topbraid.com/ontoA#unEquivanox"},
+                            'ent2' : {'et': ParseAlignment.EDOAL['CLASS'], 'eir' : "http://tutorial.topbraid.com/ontoB#OneEq"},
                             'msre' : 1.0,
                             'reln' : 'EQ'
                         },{
                             'name' : "MappingRule_1", 
-                            'ent1' : {'et': ParseAlignment.EDOAL['PROP'], 'eir' : "{http://tutorial.topbraid.com/ontoA#}unEquivanox"},
-                            'ent2' : {'et': ParseAlignment.EDOAL['PROP'], 'eir' : "{http://tutorial.topbraid.com/ontoB#}OneEq"},
+                            'ent1' : {'et': ParseAlignment.EDOAL['PROP'], 'eir' : "http://tutorial.topbraid.com/ontoA#unEquivanox"},
+                            'ent2' : {'et': ParseAlignment.EDOAL['PROP'], 'eir' : "http://tutorial.topbraid.com/ontoB#OneEq"},
                             'msre' : 1.0,
                             'reln' : 'EQ'
                          },{
                             'name' : "MappingRule_2", 
-                            'ent1' : {'et': ParseAlignment.EDOAL['RELN'], 'eir' : "{http://tutorial.topbraid.com/ontoA#}unEquivanox"},
-                            'ent2' : {'et': ParseAlignment.EDOAL['RELN'], 'eir' : "{http://tutorial.topbraid.com/ontoB#}OneEq"},
+                            'ent1' : {'et': ParseAlignment.EDOAL['RELN'], 'eir' : "http://tutorial.topbraid.com/ontoA#unEquivanox"},
+                            'ent2' : {'et': ParseAlignment.EDOAL['RELN'], 'eir' : "http://tutorial.topbraid.com/ontoB#OneEq"},
                             'msre' : 1.0,
                             'reln' : 'EQ'
                         },{
                             'name' : "MappingRule_3", 
-                            'ent1' : {'et': ParseAlignment.EDOAL['INST'], 'eir' : "{http://tutorial.topbraid.com/ontoA#}unEquivanox"},
-                            'ent2' : {'et': ParseAlignment.EDOAL['INST'], 'eir' : "{http://tutorial.topbraid.com/ontoB#}OneEq"},
+                            'ent1' : {'et': ParseAlignment.EDOAL['INST'], 'eir' : "http://tutorial.topbraid.com/ontoA#unEquivanox"},
+                            'ent2' : {'et': ParseAlignment.EDOAL['INST'], 'eir' : "http://tutorial.topbraid.com/ontoB#OneEq"},
                             'msre' : 1.0,
                             'reln' : 'EQ'
                         }
@@ -104,20 +113,20 @@ class TestNSManager(unittest.TestCase):
                     'corrs': [
                         {
                             'name' : "MappingRule_0", 
-                            'ent1' : {'et': ParseAlignment.EDOAL['CLASS'], 'eir' : "{http://www.w3.org/TR/2003/CR-owl-guide-20030818/wine#}VintageYear"},
-                            'ent2' : {'et': ParseAlignment.EDOAL['CLASS'], 'eir' : "{http://ontology.deri.org/vin#}Millesime"},
+                            'ent1' : {'et': ParseAlignment.EDOAL['CLASS'], 'eir' : "http://www.w3.org/TR/2003/CR-owl-guide-20030818/wine#VintageYear"},
+                            'ent2' : {'et': ParseAlignment.EDOAL['CLASS'], 'eir' : "http://ontology.deri.org/vin#Millesime"},
                             'msre' : 1.0,
                             'reln' : 'EQ'
                         },{
                             'name' : "MappingRule_1", 
-                            'ent1' : {'et': ParseAlignment.EDOAL['PROP'], 'eir' : "{http://www.w3.org/TR/2003/CR-owl-guide-20030818/wine#}VintageYear"},
-                            'ent2' : {'et': ParseAlignment.EDOAL['PROP'], 'eir' : "{http://ontology.deri.org/vin#}Millesime"},
+                            'ent1' : {'et': ParseAlignment.EDOAL['PROP'], 'eir' : "http://www.w3.org/TR/2003/CR-owl-guide-20030818/wine#VintageYear"},
+                            'ent2' : {'et': ParseAlignment.EDOAL['PROP'], 'eir' : "http://ontology.deri.org/vin#Millesime"},
                             'msre' : 1.0,
                             'reln' : 'EQ'
                         },{
                             'name' : "MappingRule_2", 
-                            'ent1' : {'et': ParseAlignment.EDOAL['RELN'], 'eir' : "{http://www.w3.org/TR/2003/CR-owl-guide-20030818/wine#}VintageYear"},
-                            'ent2' : {'et': ParseAlignment.EDOAL['RELN'], 'eir' : "{http://ontology.deri.org/vin#}Millesime"},
+                            'ent1' : {'et': ParseAlignment.EDOAL['RELN'], 'eir' : "http://www.w3.org/TR/2003/CR-owl-guide-20030818/wine#VintageYear"},
+                            'ent2' : {'et': ParseAlignment.EDOAL['RELN'], 'eir' : "http://ontology.deri.org/vin#Millesime"},
                             'msre' : 1.0,
                             'reln' : 'EQ'
                         }
@@ -133,6 +142,12 @@ class TestNSManager(unittest.TestCase):
                         "MappingRule_0": AssertionError, # Empty <Cell> element
                         "MappingRule_1": AssertionError, # Missing <entity1> element
                         "MappingRule_11": AssertionError,# Multiple <entity1> element 
+                        "MappingRule_12": AssertionError,# Non-empty simple <class> element 
+                        "MappingRule_13": AssertionError,# Non-empty simple <property> element 
+                        "MappingRule_14": AssertionError,# Non-empty simple <relation> element 
+                        "MappingRule_15": AssertionError,# Non-empty simple <class> element 
+                        "MappingRule_16": AssertionError,# Non-empty simple <property> element
+                        "MappingRule_17": AssertionError,# Non-empty simple <relation> element
                         "MappingRule_2": AssertionError, # Missing <entity2> element
                         "MappingRule_21": AssertionError,# Multiple <entity2> element 
                         "MappingRule_3": RuntimeError,   # Missing <relation> element 
@@ -168,43 +183,114 @@ class TestNSManager(unittest.TestCase):
             {
             'pass': {
                 # The LiteralPass1 tests are all <Literal>'s, but not all possible literal values/xsd:valuetype's have been specified and hence, tested
-                'resources/valueLiteralPass1.xml': {
-                    'valuePass1A': {
+                'resources/valueSimplePass1.xml': {
+                    'valueLiteralePass1A': {
                         'valueType': 'edoal:Literal',
                         'value': 'appelepap',
-                        'type': 'xsd:string'
+                        'type': 'http://www.w3.org/2001/XMLSchema#string'
                         },
-                    'valuePass1B': {
+                    'valueLiteralePass1B': {
                         'valueType': 'edoal:Literal',
                         'value': '123',
-                        'type': 'xsd:integer'
+                        'type': 'http://www.w3.org/2001/XMLSchema#integer'
                         },
-                    'valuePass1C': {
+                    'valueLiteralePass1C': {
                         'valueType': 'edoal:Literal',
                         'value': '1.23',
-                        'type': 'xsd:float'
+                        'type': 'http://www.w3.org/2001/XMLSchema#float'
+                        },
+                    'valueInstancePass1': {
+                        'valueType': 'edoal:Instance',
+                        'value': 'http://ts.tno.nl/mediator/1.0/appelepap'
+                        },
+                    'valuePropertyPass1A': {
+                        'valueType': 'edoal:Property',
+                        'value': 'http://ts.tno.nl/mediator/1.0/appelepap',
+                        'lang': None
+                        },
+                    'valuePropertyPass1B': {
+                        'valueType': 'edoal:Property',
+                        'value': 'http://ts.tno.nl/mediator/1.0/appelepap',
+                        'lang': 'NL'
+                        },
+                    'valueRelationPass1': {
+                        'valueType': 'edoal:Relation',
+                        'value': 'http://ts.tno.nl/mediator/1.0/appelepap'
                         }
                     },
-                'resources/valueInstancePass1.xml': {
-                    'valuePass1A': {
-                        'valueType': 'edoal:Instance',
-                        'value': 'tno:appelepap'
+                'resources/valueSimplePass2.xml': {
+                    'valueLiteralePass2A': {
+                        'valueType': 'edoal:Apply',
+                        'value': 'CtoF',
+                        'type': 'http://ns.inria.org/edoal/1.0/#apply'
+                        },
+                    'valueLiteralePass2B': {
+                        'valueType': 'edoal:Apply',
+                        'value': 'TempConvertor',
+                        'type': 'http://ns.inria.org/edoal/1.0/#apply'
+                        }
+                    },
+                'resources/valuePathPass1.xml': {
+                    'valuePathPass1A': {
+                        'valueType': 'edoal:compose',
+                        'value': ['http://ts.tno.nl/mediator/1.0/example#hasProperty ({http://ns.inria.org/edoal/1.0/#}property)'],
+                        'type': ParseAlignment.EDOAL['PROP']
+                        },
+                    'valuePathPass1B': {
+                        'valueType': 'edoal:compose',
+                        'value': ['http://ts.tno.nl/mediator/1.0/example#hasRelation ({http://ns.inria.org/edoal/1.0/#}relation)', 'http://ts.tno.nl/mediator/1.0/example#hasProperty ({http://ns.inria.org/edoal/1.0/#}property)'],
+                        'type': ParseAlignment.EDOAL['PROP']
+                        },
+                    'valuePathPass1C': {
+                        'valueType': 'edoal:compose',
+                        'value': ['http://ts.tno.nl/mediator/1.0/example#hasRelation ({http://ns.inria.org/edoal/1.0/#}relation)'],
+                        'type': ParseAlignment.EDOAL['RELN']
+                        },
+                    'valuePathPass1D': {
+                        'valueType': 'edoal:compose',
+                        'value': [],
+                        'type': ParseAlignment.EDOAL['PROP']
+                        },
+                    'valuePathPass1E': {
+                        'valueType': 'edoal:compose',
+                        'value': [],
+                        'type': ParseAlignment.EDOAL['RELN']
+                        },
+                    'valuePathPass1F': {
+                        'valueType': 'edoal:compose',
+                        'value': ['http://ts.tno.nl/mediator/1.0/example#hasRelation1 ({http://ns.inria.org/edoal/1.0/#}relation)', 'http://ts.tno.nl/mediator/1.0/example#hasRelation2 ({http://ns.inria.org/edoal/1.0/#}relation)', 'http://ts.tno.nl/mediator/1.0/example#hasProperty ({http://ns.inria.org/edoal/1.0/#}property)'],
+                        'type': ParseAlignment.EDOAL['PROP']
                         }
                     }
                 },
             'fail': {
                 # The LiteralFail1 tests are all <Literal>'s, but not all possible literal values/xsd:valuetype's tested
-                'resources/valueLiteralFail1.xml': { 
-                    'Fail1': AssertionError,        # Empty <entity> element
-                    'Fail2': AssertionError,        # Missing edoal:string attribute in <edoal:Literal\>
-                    'Fail3': AssertionError         # <edoal:Literal> not an empty element
+                'resources/valueSimpleFail1.xml': { 
+                    'FailEmpty1'   : AssertionError,        # Empty <entity> element
+                    'FailLiteral1' : AssertionError,        # Missing edoal:string attribute in <edoal:Literal\>
+                    'FailLiteral2' : AssertionError,        # Literal is always a single, empty element with its value in the attributes 
+                    'FailInstance1': AssertionError,        # Missing rdf:about attribute in <edoal:Instance\>
+                    'FailInstance2': AssertionError,        # Empty rdf:about attribute in element
+                    'FailInstance3': AssertionError,        # Incorrect attribute in element
+                    'FailInstance4': AssertionError,        # Not an empty element
+                    'FailProperty1': AssertionError,        # Empty about attribute, empty Lang attribute
+                    'FailProperty2': AssertionError,        # Missing about attribute, empty Lang attribute
+                    'FailProperty3': AssertionError,        # Empty about attribute, missing Lang attribute 
+                    'FailProperty4': AssertionError,        # Missing about attribute, missing Lang attribute
+                    'FailProperty5': AssertionError,        # Empty about attribute, valid Lang attribute
+                    'FailProperty6': AssertionError,        # Missing about attribute, valid Lang attribute
+                    'FailRelation1': AssertionError,        # Empty about attribute
+                    'FailRelation2': AssertionError,        # Missing about attribute 
+                    'FailRelation3': AssertionError         # Valid attribute, invalid element (element is not empty) 
                     },
-                'resources/valueInstanceFail1.xml': { 
-                    'Fail1': AssertionError,        # Empty <entity> element
-                    'Fail2': AssertionError,        # Missing rdf:about attribute in <edoal:Instance\>
-                    'Fail3': AssertionError,        # Empty rdf:about attribute in element
-                    'Fail4': AssertionError,        # Incorrect attribute in element
-                    'Fail5': AssertionError         # Not an empty element
+                'resources/valuePathFail1.xml': { 
+                    'FailPathOfNonAttrExpr1'  : AssertionError,        # Instance path is illegal
+                    'FailPathOfNonAttrExpr2'  : AssertionError,        # Literal path is illegal
+                    'FailPathOfNonAttrExpr3'  : AssertionError,        # Class path is illegal 
+                    'FailPathWithNonAttrExpr1': AssertionError,        # Property Path containing Instance is illegal
+                    'FailPathWithNonAttrExpr2': AssertionError,        # Relation Path containing Literal is illegal
+                    'FailPathWithNonAttrExpr3': AssertionError,        # Relation Path containing Class is illegal
+                    'FailComplexPathNotImpl'  : NotImplementedError    # Correct path, but too complex to be implemented yet
                     }
                 }
             } 
@@ -216,6 +302,7 @@ class TestNSManager(unittest.TestCase):
 
 
     def testParseEdoalAdmin(self):
+        from mediator.EDOALparser import ParseAlignment
         info = True
         debug = 3
         rule = 'ADMIN'
@@ -286,6 +373,7 @@ class TestNSManager(unittest.TestCase):
                 print('='*20)
 
     def testParseEdoalCorrespondence(self):
+        from mediator.EDOALparser import ParseAlignment
         info = True
         debug = 3
         rule = 'CORR'
@@ -322,11 +410,11 @@ class TestNSManager(unittest.TestCase):
                         if name == c['name']:
                             if debug >= 3: print('\t testing {} ..'.format(name), end="")
                             # Since this cell is part of a pass test, continue test
-                            corr = pa.getCorrespondence(cell)
+                            corr = pa._parseCorrespondence(cell)
                             assert corr.getName() == c['name']
-                            ent = corr.getEE1()
-                            assert str(ent.getEntityIriRef()) == c['ent1']['eir'], "Expected <{}>, got <{}>".format(c['ent1']['eir'],ent.getEntityIriRef())
-                            assert ent.getEntityType() == c['ent1']['et'], "Expected <{}>, <got> {}".format(c['ent1']['et'],ent.getEntityType())
+                            entExpr = corr.getEE1()
+                            assert entExpr.getExpression().getIriRef() == c['ent1']['eir'], "Expected <{}>, got <{}>".format(c['ent1']['eir'], entExpr.getExpression().getIriRef())
+                            assert entExpr.getExpression().getType() == c['ent1']['et'], "Expected <{}>, <got> {}".format(c['ent1']['et'], entExpr.getExpression().getType())
                             if debug >= 3: print(". done")
                             break
                     if corr.getName() != c['name']:
@@ -373,22 +461,15 @@ class TestNSManager(unittest.TestCase):
                                 assert isinstance(name,str) and name!='', "An edoal {} element requires an {} attribute. None found in this cell in {}".format(cell.tag, pa.nsMrg.CLARKS_LABELS['RDFABOUT'],f)
                                 if debug >= 3: print("\ttesting {} ..".format(name), end="")
                                 try:
-                                    corr = pa.getCorrespondence(cell)
+                                    corr = pa._parseCorrespondence(cell)
                                     raise TestException('Testcase {}: test {} should have raised exception {}'.format(f,name, mappings[name]))
                                 except Exception as e: 
                                     assert type(e) == mappings[name], 'TestNSManager {} should have raised exception {}; got {}'.format(name, mappings[name], type(e))
                                     if debug >= 3: print(". done")
                         
     def testParseEdoalValue(self):
-        from utilities.namespaces import NSManager
-        ns = {'rdf': "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-              'xsd': "http://www.w3.org/2001/XMLSchema#",
-              'align':"http://knowledgeweb.semanticweb.org/heterogeneity/alignment#",
-              'edoal':'http://ns.inria.org/edoal/1.0/#',
-              't'   : 'http://ns.tno.nl/mediator/test#'
-              }
-        nsMgr = NSManager(ns, "http://ns.tno.nl/mediator/test#")
-        
+        from mediator.EDOALparser import ParseAlignment
+
         info = True
         debug = 3
         rule = 'VALUE'
@@ -412,27 +493,39 @@ class TestNSManager(unittest.TestCase):
                 if debug >= 1:
                     print('PASS case {} has specified {} tests'.format(testCase,len(testCriteria)))
                 # Do the test
-                with open(testCase, 'r') as f:
-                    test_tree = etree.parse(f)
-                root = test_tree.getroot()
-                tests = root.findall('t:test', ns)
-                if len(testCriteria) != len(tests): raise TestException('TestNSManager setup specifies {} tests, but {} tests found in test data ({})'.format(len(testCriteria), len(tests), testCase))
+                # Create a ParseAlignment object only to have a valid ParseAlignment object and create a valid nsMgr;
+                #    the test data is incorrect edoal, and this code below takes that into consideration
+                pa = ParseAlignment(testCase)
+                testsEl = pa._align.findall(self.nsMgr.asClarks('t:tests'))
+                if testsEl == None or len(testsEl) == 0: raise TestException("No tests found, cannot perform tests")
+                tests = testsEl[0].findall(self.nsMgr.asClarks('t:test'))
+                if len(testCriteria) != len(tests): raise TestException('Test setup specifies {} tests, but {} tests found in test data ({})'.format(len(testCriteria), len(tests), testCase))
                 if debug >=3: print('Found {} tests in test data'.format(len(tests)))
                 for test in tests:
                     tname = test.get(NSManager.CLARKS_LABELS['RDFABOUT'])
                     # Check the test data
                     if tname == None or tname == '': raise TestException('Testcase {}: Use of {} attribute in <test> element required to discern the various testCriteria'.format(testCase, NSManager.nsmap['RDFABOUT']))
-                    edoal_entity = test.find('edoal:entity1', ns)
-                    if edoal_entity == None: raise TestException('Testcase {}: TestNSManager ({}) is required to contain an <entity1> element'.format(testCase, tname))
+                    edoal_entity = test.find(self.nsMgr.asClarks('edoal:entity1'))
+                    if edoal_entity == None: raise TestException('Testcase {}: Test ({}) is required to contain an <entity1> element'.format(testCase, tname))
                     if debug >=3: print('Testing test: {} ..'.format(tname), end="")
-                    edoalValue = ParseAlignment.Value(el=edoal_entity, nsMgr=nsMgr)
-                    if edoalValue == None: raise TestException('Testcase {}: TestNSManager ({}) is required to contain a <value> element'.format(testCase, tname))
+                    edoalValue = pa.Value(el=edoal_entity, parse_alignment=pa)
+                    if edoalValue == None: raise TestException('Testcase {}: Test ({}) is required to contain a <value> element'.format(testCase, tname))
                     # Check the value type that is under test, perform the test and verify the outcome is as expected
                     if testCriteria[tname]['valueType'] == 'edoal:Literal':
                         assert (testCriteria[tname]['value'], testCriteria[tname]['type']) == edoalValue.getLiteral(), \
-                            'Testcase {}, tests {}: expected {} but found {}'.format(testCase, tname, (testCriteria[tname]['value'], testCriteria[tname]['type']), edoalValue.getLiteral())
+                            'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, (testCriteria[tname]['value'], testCriteria[tname]['type']), edoalValue.getLiteral())
                     elif testCriteria[tname]['valueType'] == 'edoal:Instance':
-                        assert testCriteria[tname]['value'] == edoalValue.getIndividual(),'Testcase {}, tests {}: expected {} but found {}'.format(testCase, tname, testCriteria[tname]['value'], edoalValue.getIndividual())
+                        assert testCriteria[tname]['value'] == edoalValue.getIndividual(),'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, testCriteria[tname]['value'], edoalValue.getIndividual())
+                    elif testCriteria[tname]['valueType'] in ['edoal:Property', 'edoal:Relation']:
+                        assert testCriteria[tname]['value'] == edoalValue.getAttrExpression(),'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, testCriteria[tname]['value'], edoalValue.getAttrExpression())
+                    elif testCriteria[tname]['valueType'] in ['edoal:Apply', 'edoal:Aggregate']:
+                        assert testCriteria[tname]['value'] == str(edoalValue.getOperator()),'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, testCriteria[tname]['value'], edoalValue.getOperator())
+                    elif testCriteria[tname]['valueType'] == 'edoal:compose':
+                        assert testCriteria[tname]['type'] == edoalValue.getEntityType(),'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, testCriteria[tname]['type'], edoalValue.getEntityType())
+                        if edoalValue.hasPath():
+                            for criterion, attrExpr in zip(testCriteria[tname]['value'], edoalValue.getPath()):
+                                assert criterion == str(attrExpr), 'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, criterion, attrExpr)
+                        else: raise AssertionError('Testcase {}, test {}: missing path expression'.format(testCase, tname))
                     else: raise TestException('No test code implemented for value type {}, please specify and add test code'.format(testCriteria[tname]['valueType']))
                     if debug >=3: print('. done')
 
@@ -441,12 +534,12 @@ class TestNSManager(unittest.TestCase):
                 if debug >= 1:
                     print('\nFAIL case {} has specified {} tests'.format(testCase,len(testCriteria)))
 
-                # Get the filename; each file is a testcase
-                with open(testCase, 'r') as f:
-                    test_tree = etree.parse(f)
-                # Parse the xml-data that represent the test data
-                root = test_tree.getroot()
-                tests = root.findall('t:test', ns)
+                # Create a ParseAlignment object only to have a valid ParseAlignment object and create a valid nsMgr;
+                #    the test data is incorrect edoal, and this code below takes that into consideration
+                pa = ParseAlignment(testCase)
+                testsEl = pa._align.findall(self.nsMgr.asClarks('t:tests'))
+                if testsEl == None or len(testsEl) == 0: raise TestException("No tests found, cannot perform tests")
+                tests = testsEl[0].findall(self.nsMgr.asClarks('t:test'))
                 if len(testCriteria) != len(tests): raise TestException('TestNSManager setup specifies {} tests, but {} tests found in test data ({})'.format(len(testCriteria), len(tests), testCase))
                 if debug >=3: print('Found {} tests in test data'.format(len(tests)))
                 # Illegal use of the Alignment element
@@ -454,21 +547,22 @@ class TestNSManager(unittest.TestCase):
                     tname = test.get(NSManager.CLARKS_LABELS['RDFABOUT'])
                     # Check the test data
                     if tname == None or tname == '': raise TestException('Testcase {}: Use of {} attribute in <test> element required to discern the various testCriteria'.format(testCase, NSManager.nsmap['RDFABOUT']))
-                    edoal_entity=test.find('edoal:entity1', ns)
-                    if edoal_entity==None: raise TestException('Testcase {}: TestNSManager ({}) is required to contain an <entity1> element'.format(testCase, tname))
+                    edoal_entity=test.find(self.nsMgr.asClarks('edoal:entity1'))
+                    if edoal_entity==None: raise TestException('Testcase {}: TestCase ({}) is required to contain an <entity1> element'.format(testCase, tname))
                     # Perform the test, check for the occurrence of an exception and verify that the fault condition raises the correct exception
                     try:
                         if debug >=3: print('testing {} ...'.format(tname), end="")
-                        _ = ParseAlignment.Value(el=edoal_entity, nsMgr=nsMgr)
+                        _ = pa.Value(el=edoal_entity, parse_alignment=pa)
                         # This should be dead code, because an exception should have been raised
-                        raise TestException('Testcase {}: TestNSManager {} failed, expected exception ({}) did not occur!'.format(testCase, tname, testCriteria[tname]))
-                    except Exception as e: assert type(e) == testCriteria[tname], 'Testcase {}: TestNSManager {} expected {}, got {}'.format(testCase, tname, testCriteria[tname], type(e))
+                        raise TestException('Testcase {}: Test {} failed, expected exception ({}) did not occur!'.format(testCase, tname, testCriteria[tname]))
+                    except Exception as e: assert type(e) == testCriteria[tname], 'Testcase {}, test {}: expected {}, got {}'.format(testCase, tname, testCriteria[tname], type(e))
                     if debug >=3: print('. done')
 
-    def _parseOperationTest(self):
-        pass
-       # _parseOperation(self, operation_el=None)
-        
+    def test_parseOperation(self):
+        assert False, "Make test for this one"
+
+    def test_parseTransform(self):
+        assert False, "Make test for this one"
 
 
 if __name__ == "__main__":

@@ -10,6 +10,24 @@
   rdf:type owl:Ontology ;
   owl:versionInfo "Created with TopBraid Composer"^^xsd:string ;
 .
+:Patient
+  rdf:type rdfs:Class ;
+  rdfs:comment "A Person with a temperature"^^xsd:string ;
+  rdfs:label "Patient"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:hasTemp
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "This temperature does not have a indication of unit. It is implicitly known that the temperature is measured in Centigrades"^^xsd:string ;
+  rdfs:domain :Patient ;
+  rdfs:range xsd:float ;
+.
+:Pete
+  rdf:type :Patient ;
+  :hasTemp "37"^^xsd:float ;
+  rdfs:comment "A stable patient"^^xsd:string ;
+  rdfs:label "Peter Rabbit"^^xsd:string ;
+.
 :Croc
   rdf:type :Patient ;
   :hasTemp "24"^^xsd:float ;
@@ -21,22 +39,4 @@
   :hasTemp "42"^^xsd:float ;
   rdfs:comment "A patient with too high a temperature"^^xsd:string ;
   rdfs:label "Miss Piggy"^^xsd:string ;
-.
-:Patient
-  rdf:type rdfs:Class ;
-  rdfs:comment "A Person with a temperature"^^xsd:string ;
-  rdfs:label "Patient"^^xsd:string ;
-  rdfs:subClassOf owl:Thing ;
-.
-:Pete
-  rdf:type :Patient ;
-  :hasTemp "37"^^xsd:float ;
-  rdfs:comment "A stable patient"^^xsd:string ;
-  rdfs:label "Peter Rabbit"^^xsd:string ;
-.
-:hasTemp
-  rdf:type owl:DatatypeProperty ;
-  rdfs:comment "This temperature does not have a indication of unit. It is implicitly known that the temperature is measured in Centigrades"^^xsd:string ;
-  rdfs:domain :Patient ;
-  rdfs:range xsd:float ;
 .

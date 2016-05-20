@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE rdf:RDF [
+	<!ENTITY xsd "http://www.w3.org/2001/XMLSchema#">
+	<!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA#">
+	<!ENTITY ontoB	"http://tutorial.topbraid.com/ontoB#">
+	<!ENTITY tfnlib	"http://ts.tno.nl/mediator/1.0/transformations#">
+	]
+ >
+
+<rdf:RDF xmlns="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+	xmlns:align="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:t="http://ts.tno.nl/mediator/test#"
+	xmlns:tno="http://ts.tno.nl/mediator/instances#">
+	<!-- This is an INVALID edoal file, but only used as placeholder for various testcases for the Value elements --> 
+	<!-- Testcases for the INSTANCE value elements --> 
+	
+	<!-- Irrelevant admin part, but necessary for valid parsing up to the <t:tests>, which are invalid edoal elements -->
+	<Alignment rdf:about="http://ds.tno.nl/ontoA-ontoB/CPR-EQ-CPR">
+		<xml>yes</xml>
+		<dc:creator>PaulBrandt</dc:creator>
+		<dc:date>2015/08/25</dc:date>
+		<method>manual</method>
+		<purpose>TEST DATA (transform testing)</purpose>
+		<level>2EDOAL</level>
+		<type>?*</type>
+		<onto1>
+			<Ontology rdf:about="&ontoA;">
+				<formalism>
+					<!-- <location>ontoA.xml</location> -->
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto1>
+		<onto2>
+			<Ontology rdf:about="&ontoB;">
+				<location>resources/nl/test1/ontoB.xml</location>
+				<formalism>
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto2>
+		<!-- Test part -->
+		<t:tests>
+			<t:test rdf:about="transformPass1">
+				<edoal:entity1> <!-- single argument transformation -->
+					<edoal:Apply edoal:operator="&tfnlib;unitconversion/CtoF"> 
+						<edoal:arguments rdf:parseType="Collection"> 
+							<edoal:Property rdf:about="&ontoA;hasTemp" /> 
+						</edoal:arguments>
+					</edoal:Apply>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="transformPass2">
+				<edoal:entity1> <!-- multiple argument transformation -->
+					<edoal:Aggregate edoal:operator="&tfnlib;unitconversion/TempConvertor"> 
+						<edoal:arguments rdf:parseType="Collection"> 
+							<edoal:Property rdf:about="&ontoB;hasTempInF" /> 
+							<edoal:Literal edoal:string="f" /> 
+							<edoal:Literal edoal:string="c" /> 
+						</edoal:arguments>
+					</edoal:Aggregate>
+				</edoal:entity1>
+			</t:test>
+		</t:tests>
+	</Alignment>
+</rdf:RDF>

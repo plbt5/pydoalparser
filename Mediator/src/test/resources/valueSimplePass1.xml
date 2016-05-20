@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE rdf:RDF [
+	<!ENTITY xsd "http://www.w3.org/2001/XMLSchema#">
+	<!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA#">
+	<!ENTITY ontoB	"http://tutorial.topbraid.com/ontoB#">
+	]
+ >
+
+<rdf:RDF xmlns="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+	xmlns:align="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:t="http://ts.tno.nl/mediator/test#"
+	xmlns:tno="http://ts.tno.nl/mediator/instances#">
+	<!-- This is an INVALID edoal file, but only used as placeholder for various testcases for the Value elements --> 
+	<!-- Testcases for the INSTANCE value elements --> 
+	
+	<!-- Irrelevant admin part, but necessary for valid parsing up to the <t:tests>, which are invalid edoal elements -->
+	<Alignment rdf:about="http://ds.tno.nl/ontoA-ontoB/CPR-EQ-CPR">
+		<xml>yes</xml>
+		<dc:creator>PaulBrandt</dc:creator>
+		<dc:date>2015/08/25</dc:date>
+		<method>manual</method>
+		<purpose>TEST DATA (Value parsing: Literals, Instances, Properties, Relations)</purpose>
+		<level>2EDOAL</level>
+		<type>?*</type>
+		<onto1>
+			<Ontology rdf:about="&ontoA;">
+				<formalism>
+					<!-- <location>ontoA.xml</location> -->
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto1>
+		<onto2>
+			<Ontology rdf:about="&ontoB;">
+				<location>resources/nl/test1/ontoB.xml</location>
+				<formalism>
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto2>
+		<!-- Test part -->
+		<t:tests>
+			<t:test rdf:about="valueLiteralePass1A">
+				<edoal:entity1>
+					<edoal:Literal edoal:type="xsd:string" edoal:string="appelepap" />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valueLiteralePass1B">
+				<edoal:entity1>
+					<edoal:Literal edoal:type="xsd:integer" edoal:string="123" />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valueLiteralePass1C">
+				<edoal:entity1>
+					<edoal:Literal edoal:type="xsd:float" edoal:string="1.23" />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valueInstancePass1">
+				<edoal:entity1>
+					<edoal:Instance rdf:about="tno:appelepap" />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valuePropertyPass1A">
+				<edoal:entity1>
+					<edoal:Property rdf:about="tno:appelepap" />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valuePropertyPass1B">
+				<edoal:entity1>
+					<edoal:Property rdf:about="tno:appelepap" edoal:lang="NL"/>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="valueRelationPass1">
+				<edoal:entity1>
+					<edoal:Relation rdf:about="tno:appelepap" />
+				</edoal:entity1>
+			</t:test>
+		</t:tests>
+	</Alignment>
+</rdf:RDF>

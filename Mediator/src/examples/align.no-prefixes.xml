@@ -55,19 +55,19 @@
 				</entity2>
 				<measure rdf:datatype="&xsd;float">1.0</measure>
 				<relation>Equivalence</relation>
-				<edoal:transformation>
-					<edoal:Transformation edoal:direction="o-">
+				<transformation>
+					<Transformation edoal:direction="o-">
 						<!-- F = C x 9/5 + 32 -->
-						<edoal:entity1>
-							<edoal:Apply edoal:operator="http://ds.tno.nl/FuncC2F">
-								<edoal:arguments rdf:parseType="Collection">
+						<entity1>
+							<Apply edoal:operator="http://ds.tno.nl/FuncC2F">
+								<arguments rdf:parseType="Collection">
 									<edoal:Class rdf:about="&ontoA;TempInC" />
-								</edoal:arguments>
-							</edoal:Apply>
-						</edoal:entity1>
-						<edoal:entity2><edoal:Class rdf:about="&ontoB;TempInF" /></edoal:entity2>
-					</edoal:Transformation>
-				</edoal:transformation>
+								</arguments>
+							</Apply>
+						</entity1>
+						<entity2><edoal:Class rdf:about="&ontoB;TempInF" /></entity2>
+					</Transformation>
+				</transformation>
 			</Cell>
 		</map>
 	</Alignment>

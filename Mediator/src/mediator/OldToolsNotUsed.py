@@ -104,8 +104,8 @@ class Mediator(object):
             
             print(self.render())
             if self._rel != 'EQ':
-                #TODO: Translate entity_iriref expressions LT, GT and ClassConstraints
-                raise NotImplementedError('Only entity_iriref expression relations of type "EQ" supported')
+                #TODO: Translate _entityIriRef expressions LT, GT and ClassConstraints
+                raise NotImplementedError('Only _entityIriRef expression relations of type "EQ" supported')
             elif (len(list(self._src.iter())) > 2):
                 # Classrestriction: <AttributeValueRestriction> onatt comp val </AttributeValueRestriction>
                 
@@ -114,23 +114,23 @@ class Mediator(object):
                         # Complex Boolean Class Construct found
                         raise NotImplementedError('Complex Boolean Edoal Class constructs not supported')
                     else:
-                        # Simple Class Entity found; hand over to the simple entity_iriref EQ translation
+                        # Simple Class Entity found; hand over to the simple _entityIriRef EQ translation
                         print("Implementation required to translate {}".format(self._src[0].tag))
                         
                 elif (self._src[0].tag.lower() in [EDOALCAOR, EDOALCADR, EDOALCATR, EDOALCAVR]):
                     # Complex Class Restriction found
                     
                     raise NotImplementedError('Complex Class Restriction found, under construction')
-                else: raise NotImplementedError('For complex entity_iriref expressions, only class restrictions supported')
+                else: raise NotImplementedError('For complex _entityIriRef expressions, only class restrictions supported')
             
             elif (len(list(self._tgt.iter())) > 2):
                 raise NotImplementedError('Only simple entity2 expressions supported')
             elif not ((self._src[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST]) and \
                     (self._tgt[0].tag.lower() in [EDOALCLASS, EDOALPROP, EDOALRELN, EDOALINST])):
-                raise KeyError('Only edoal entity_iriref type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self._src[0].tag.lower()))
+                raise KeyError('Only edoal _entityIriRef type "Class", "Property", "Relation", and "Instance" supported; got {}'.format(self._src[0].tag.lower()))
             
             # EQ relation for simple entities found. 
-            # Since this is a simple entity_iriref expression, get name of _src (entity1) and _tgt (entity2)
+            # Since this is a simple _entityIriRef expression, get name of _src (entity1) and _tgt (entity2)
             src = list(self._src.iter())[1].get(RDFABOUT)
             tgt = list(self._tgt.iter())[1].get(RDFABOUT)
 #             at = AssociationGraph(edoalEntity=_src, sparqlData=data)
@@ -317,7 +317,7 @@ class AssociationGraph(Graph):
             # Add statement (2)
 # #             self.mns.spo = Literal(self.mns[str(self.uris[term])])
 #             self.mns.spo = URIRef(self.mns[self.uris[term]])
-#             self.add((self.mns.entity_iriref, URIRef(self.mns[self.uris['appearsAs']]), self.mns.spo))
+#             self.add((self.mns._entityIriRef, URIRef(self.mns[self.uris['appearsAs']]), self.mns.spo))
             # Add statement (1)
             sparqlTreeNode = Literal(atom)
             self.add((self.mns.spo, RDF.about, sparqlTreeNode))
@@ -356,7 +356,7 @@ class AssociationGraph(Graph):
         
         # Prepare the association graph; add statement "mynamespace:<this_EDOAL_entity> isA Class".
         # I'm not sure how relevant this statement will show...
-        self.add((self.mns.entity_iriref, RDF.type, RDFS.Class))
+        self.add((self.mns._entityIriRef, RDF.type, RDFS.Class))
         
         for qryElmtNode in srcNodes:
             # Build the two statements that form the anchor into the sparql graph:

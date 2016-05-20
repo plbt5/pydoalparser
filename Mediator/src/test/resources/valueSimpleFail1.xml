@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE rdf:RDF  [
+	<!ENTITY xsd "http://www.w3.org/2001/XMLSchema#">
+	<!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA#">
+	<!ENTITY ontoB	"http://tutorial.topbraid.com/ontoB#">
+	]
+>
+
+<rdf:RDF xmlns="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+	xmlns:align="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
+	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:t="http://ts.tno.nl/mediator/test#"
+	xmlns:tno="http://ts.tno.nl/mediator/instances#">
+	<!-- This is an INVALID edoal file, but only used as placeholder for various testcases for the Value elements --> 
+	<!-- Testcases - failing - for the INSTANCE value elements -->
+	
+	<!-- Irrelevant admin part, but necessary for valid parsing up to the <t:tests>, whcih are invalid edoal elements -->
+	<Alignment rdf:about="http://ds.tno.nl/ontoA-ontoB/CPR-EQ-CPR">
+		<xml>yes</xml>
+		<dc:creator>PaulBrandt</dc:creator>
+		<dc:date>2015/08/25</dc:date>
+		<method>manual</method>
+		<purpose>TEST DATA (Entity Transformation)</purpose>
+		<level>2EDOAL</level>
+		<type>?*</type>
+		<onto1>
+			<Ontology rdf:about="&ontoA;">
+				<formalism>
+					<!-- <location>ontoA.xml</location> -->
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto1>
+		<onto2>
+			<Ontology rdf:about="&ontoB;">
+				<location>resources/nl/test1/ontoB.xml</location>
+				<formalism>
+					<Formalism align:uri="http://www.w3.org/2002/07/owl#"
+						align:name="OWL1.0" />
+				</formalism>
+			</Ontology>
+		</onto2>
+		<!-- Tests part -->
+		<t:tests>
+			<t:test rdf:about="FailEmpty1">
+				<edoal:entity1> 
+					<!-- empty element -->
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailInstance1">
+				<edoal:entity1> <!-- Missing rdf:about attribute -->
+					<edoal:Instance  />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailInstance2">
+				<edoal:entity1> <!-- Empty rdf:about attribute -->
+					<edoal:Instance rdf:about=""/>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailInstance3">
+				<edoal:entity1> <!-- Incorrect attribute -->
+					<edoal:Instance rdf:datavalue="tno:instance" />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailInstance4">
+				<edoal:entity1> <!-- Instance is always a single, empty element with its value in the attribute -->
+					<edoal:Instance >1.23</edoal:Instance>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailLiteral1">
+				<edoal:entity1> <!-- Missing edoal:string attribute -->
+					<edoal:Literal edoal:type="xsd:integer" />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailLiteral2">
+				<edoal:entity1> <!-- Literal is always a single, empty element with its value in the attributes -->
+					<edoal:Literal edoal:type="xsd:float" >1.23</edoal:Literal>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailProperty1">
+				<edoal:entity1> <!-- Empty about attribute, empty Lang attribute -->
+					<edoal:Property rdf:about="" edoal:lang=""/>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailProperty2">
+				<edoal:entity1> <!-- Missing about attribute, empty Lang attribute -->
+					<edoal:Property rdf:about="" edoal:lang=""/>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailProperty3">
+				<edoal:entity1> <!-- Empty about attribute, missing Lang attribute -->
+					<edoal:Property rdf:about="" />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailProperty4">
+				<edoal:entity1> <!-- Missing about attribute, missing Lang attribute -->
+					<edoal:Property />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailProperty5">
+				<edoal:entity1> <!-- Empty about attribute, valid Lang attribute -->
+					<edoal:Property rdf:about="" edoal:lang="NL"/>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailProperty6">
+				<edoal:entity1 > <!-- Missing about attribute, valid Lang attribute -->
+					<edoal:Property edoal:lang="NL"/>
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailRelation1">
+				<edoal:entity1> <!-- Empty about attribute -->
+					<edoal:Relation rdf:about="" />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailRelation2">
+				<edoal:entity1> <!-- Missing about attribute -->
+					<edoal:Relation />
+				</edoal:entity1>
+			</t:test>
+			<t:test rdf:about="FailRelation3">
+				<edoal:entity1> <!-- Valid attribute, invalid element (element is not empty) -->
+					<edoal:Relation rdf:about="tno:appelepap">perenmoes</edoal:Relation>
+				</edoal:entity1>
+			</t:test>
+		</t:tests>
+	</Alignment>		
+</rdf:RDF>

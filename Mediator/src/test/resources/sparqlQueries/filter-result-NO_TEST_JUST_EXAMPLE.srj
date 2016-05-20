@@ -1,0 +1,14 @@
+{
+	"head": {
+		"vars": [ "v", "c", "r" ]
+	} ,
+	"results": {
+		"bindings": [
+			{
+				"v": { "type": "VAR1", "value": "?t" } ,
+				"c": { "type": "GT", "value": ">" } ,
+				"r": { "type": "VAR1", "value": "?a" }
+			}
+		]
+	}
+}
