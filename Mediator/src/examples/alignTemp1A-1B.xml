@@ -3,6 +3,7 @@
 <!ENTITY xsd "http://www.w3.org/2001/XMLSchema#">
 <!ENTITY ontoA	"http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#">
 <!ENTITY ontoB	"http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#">
+<!ENTITY stdTf	"http://ts.tno.nl/mediator/1.0/transformations#">
 <!ENTITY proton "http://proton.semanticweb.org/">
 ]>
 
@@ -13,7 +14,7 @@
 	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" 
 	xmlns:dc="http://purl.org/dc/elements/1.1/"
 	xmlns:ex="http://example.org" 
-	xmlns:ontoA="http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#"
+	xmlns:ontoA="http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A/"
 	xmlns:ontoB="http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#"
 	xmlns:proton="http://proton.semanticweb.org/"
 	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
@@ -71,7 +72,7 @@
 					<edoal:Transformation edoal:direction="o-">
 						<!-- F = C x 9/5 + 32 -->
 						<edoal:entity1>
-							<edoal:Apply edoal:operator="http://ts.tno.nl/mediator/1.0/Transformations/FuncC2F.py">
+							<edoal:Apply edoal:operator="&stdTf;unitconversion/CtoF">
 								<edoal:arguments rdf:parseType="Collection">
 									<edoal:Property rdf:about="&ontoA;hasTemp" />
 								</edoal:arguments>
@@ -89,7 +90,7 @@
 							<edoal:Property rdf:about="&ontoA;hasTemp" />
 						</edoal:entity1>
 						<edoal:entity2>
-							<edoal:Apply edoal:operator="http://ts.tno.nl/mediator/1.0/Transformations/FuncF2C.py">
+							<edoal:Apply edoal:operator="&stdTf;unitconversion/FtoC">
 								<edoal:arguments rdf:parseType="Collection">
 									<edoal:Relation rdf:about="&ontoB;temperature_inF" />
 								</edoal:arguments>

@@ -1,0 +1,15 @@
+{
+	"head": {
+		"vars": [ "l", "b", "o", "t" ]
+	} ,
+	"results": {
+		"bindings": [
+			{
+				"l": { "type": "integer", "value": "1" } ,
+				"b": { "type": "integer", "value": "0" } ,
+				"o": { "type": "PNAME_LN", "value": "ontoA:Patient" },
+				"t": { "type": "spo", "value": "OBJ" }
+			}
+		]
+	}
+}

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE rdf:RDF [
 	<!ENTITY xsd "http://www.w3.org/2001/XMLSchema#">
-	<!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA#">
+	<!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA/">
 	<!ENTITY ontoB	"http://tutorial.topbraid.com/ontoB#">
 	<!ENTITY tfnlib	"http://ts.tno.nl/mediator/1.0/transformations#">
 	]
@@ -60,9 +60,9 @@
 				<edoal:entity1> <!-- multiple argument transformation -->
 					<edoal:Aggregate edoal:operator="&tfnlib;unitconversion/TempConvertor"> 
 						<edoal:arguments rdf:parseType="Collection"> 
-							<edoal:Property rdf:about="&ontoB;hasTempInF" /> 
-							<edoal:Literal edoal:string="f" /> 
+							<edoal:Property rdf:about="&ontoA;hasTemp" /> 
 							<edoal:Literal edoal:string="c" /> 
+							<edoal:Literal edoal:string="f" /> 
 						</edoal:arguments>
 					</edoal:Aggregate>
 				</edoal:entity1>

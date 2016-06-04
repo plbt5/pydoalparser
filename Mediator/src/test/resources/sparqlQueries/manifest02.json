@@ -1,0 +1,59 @@
+{
+	"manifest": {
+		"mf:name": "manifest02" ,
+		"mf:file": "manifest02.json" ,
+		"rdfs:comment": "Query pattern triple references"
+	} ,
+	"mf:entries": [ "test_1" , "test_2", "test_3"],
+	"test_1": {
+		"rdf:type": 	"testType01" ,
+		"mf:SUT":		"InitQPTRef" ,
+		"mf:name":		"testInit" ,
+		"rdfs:comment":	"Basic BGP pattern." ,
+		"mf:action": {
+			"mf:subject": { "sparql_iri":   { "rdf:type" : "iri" , "value" : "ontoA:Patient" }, 
+							"spo":			{ "rdf:type" : "string" , "value" : "object" }
+			},
+			"mf:data" : [
+				{ "rdf:type" : "sparle_query", "value" : "sparqlTools/QPTRefInit01.rq", "id" : "1" }
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "sparqlTools/QPTRefInit01.srj" , "id" : "1" }
+		] 
+	} ,
+	"test_2": {
+		"rdf:type": 	"testType01" ,
+		"mf:SUT":		"InitQPTRef" ,
+		"mf:name":		"testInit" ,
+		"rdfs:comment":	"Basic BGP pattern." ,
+		"mf:action": {
+			"mf:subject": { "sparql_iri":   { "rdf:type" : "iri" , "value" : "rdf:type" }, 
+							"spo":			{ "rdf:type" : "string" , "value" : "property" }
+			},
+			"mf:data" : [
+				{ "rdf:type" : "sparle_query", "value" : "sparqlTools/QPTRefInit01.rq", "id" : "1" }
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "sparqlTools/QPTRefInit02.srj" , "id" : "1" }
+		] 
+	} ,
+	"test_3": {
+		"rdf:type": 	"testType01" ,
+		"mf:SUT":		"InitQPTRef" ,
+		"mf:name":		"testInit" ,
+		"rdfs:comment":	"Basic BGP pattern." ,
+		"mf:action": {
+			"mf:subject": { "sparql_iri":   { "rdf:type" : "VAR1" , "value" : "?p" }, 
+							"spo":			{ "rdf:type" : "string" , "value" : "subject" }
+			},
+			"mf:data" : [
+				{ "rdf:type" : "sparle_query", "value" : "sparqlTools/QPTRefInit01.rq", "id" : "1" }
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "sparqlTools/QPTRefInit03.srj" , "id" : "1" }
+		] 
+	}
+}

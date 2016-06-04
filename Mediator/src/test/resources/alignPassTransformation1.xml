@@ -4,7 +4,8 @@
 <!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA#">
 <!ENTITY ontoB	"http://tutorial.topbraid.com/ontoB#">
 <!ENTITY proton "http://proton.semanticweb.org/">
-<!ENTITY tno	"http://ts.tno.nl/mediator/1.0/transformations#">
+<!ENTITY medtfn	"http://ts.tno.nl/mediator/1.0/transformations#">
+<!ENTITY tno	"http://ts.tno.nl/mediator/1.0#">
 ]>
 
 <rdf:RDF xmlns="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
@@ -21,7 +22,7 @@
 	xmlns:proton="http://proton.semanticweb.org/"
 	xmlns:edoal="http://ns.inria.org/edoal/1.0/#">
 	
-	<Alignment rdf:about="http://ds.tno.nl/ontoA-ontoB/CPR-EQ-CPR">
+	<Alignment rdf:about="&tno;ontoA-ontoB/CPR-EQ-CPR">
 		<xml>yes</xml>
 		<dc:creator>PaulBrandt</dc:creator>
 		<dc:date>2015/08/25</dc:date>
@@ -51,10 +52,10 @@
 		<map>
 			<Cell rdf:about="MappingRule_0">
 				<entity1>
-					<edoal:Class rdf:about="&ontoA;TempC" />
+					<edoal:Class rdf:about="&ontoA;Patient" />
 				</entity1>
 				<entity2>
-					<edoal:Class rdf:about="&ontoB;TempF" />
+					<edoal:Class rdf:about="&ontoB;Patient" />
 				</entity2>
 				<measure rdf:datatype="&xsd;float">1.0</measure>
 				<relation>Equivalence</relation>
@@ -62,10 +63,10 @@
 					<!-- Note the use of the Capital between the previous and next element label -->
 					<edoal:Transformation edoal:direction="-o">
 						<edoal:entity1>
-							<edoal:Property rdf:about="&ontoA;hasValue" />
+							<edoal:Property rdf:about="&ontoA;hasTemp" />
 						</edoal:entity1>
 						<edoal:entity2>
- 							<edoal:Apply edoal:operator="&tno;unitconversion/TempConvertor"> 
+ 							<edoal:Apply edoal:operator="&medtfn;unitconversion/TempConvertor"> 
  								<edoal:arguments rdf:parseType="Collection"> 
  									<edoal:Property rdf:about="&ontoB;hasTempInF" /> 
  									<edoal:Literal edoal:string="f" /> 
@@ -75,6 +76,24 @@
 						</edoal:entity2>
 					</edoal:Transformation>
 				</edoal:transformation>
+				<edoal:transformation> 
+					<!-- Note the use of the Capital between the previous and next element label -->
+					<edoal:Transformation edoal:direction="o-">
+						<edoal:entity1>
+							<edoal:Apply edoal:operator="&medtfn;unitconversion/TempConvertor"> 
+ 								<edoal:arguments rdf:parseType="Collection"> 
+									<edoal:Property rdf:about="&ontoA;hasTemp" /> 
+ 									<edoal:Literal edoal:string="c" /> 
+ 									<edoal:Literal edoal:string="f" /> 
+								</edoal:arguments>
+							</edoal:Apply>
+						</edoal:entity1>
+						<edoal:entity2>
+ 							<edoal:Property rdf:about="&ontoB;hasTempInF" /> 
+						</edoal:entity2>
+					</edoal:Transformation>
+				</edoal:transformation>
+
 			</Cell>
 		</map>
 

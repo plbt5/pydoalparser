@@ -62,7 +62,7 @@ class Mediator(object):
             
             self.tfn = []
             tfns = el.findall('xmlns:transformation', ns)
-            if tfns != None: # This part of the alignment is optional.
+            if tfns != None: # This part of the alignment_element is optional.
                 for tfn in tfns:
                     Tfn = tfn.find('xmlns:Transformation', ns)
                     if Tfn == None: raise RuntimeError('Edoal element <xmlns:Transformation> expected')
@@ -178,7 +178,7 @@ class Mediator(object):
     
     def __init__(self, edoal):
         '''
-        The Mediator can be initialized with an EDOAL alignment.  
+        The Mediator can be initialized with an EDOAL alignment_element.  
         - edoal : edoal expression, represented as ET.Element
                 
         The mediator represents one complete EDOAL Alignment, as follows:
@@ -215,7 +215,7 @@ class Mediator(object):
         else: self.about = t
         
         t = align.find('xmlns:level', self.ns)
-        if t == None: raise RuntimeError('No alignment <level> element found in Alignment {}'.format(self.about))
+        if t == None: raise RuntimeError('No alignment_element <level> element found in Alignment {}'.format(self.about))
         else: self.level = t.text
         if self.level != '2EDOAL': 
             raise NotImplementedError('Alignment level other than "2EDOAL" not supported; found {}'.format(self.level))
@@ -238,7 +238,7 @@ class Mediator(object):
 
 #         print('#cells', len(cells))
         if len(cells) == 0:
-            raise RuntimeError('An Edoal alignment requires at least one <xmlns:map><xmlns:Cell>...</xmlns:Cell></xmlns:map> element, but zero found')
+            raise RuntimeError('An Edoal alignment_element requires at least one <xmlns:map><xmlns:Cell>...</xmlns:Cell></xmlns:map> element, but zero found')
         for el in cells:
             c = self.Correspondence(el)
             self.corrs[c.getName()] = c

@@ -1,0 +1,40 @@
+{
+	"manifest": {
+		"mf:name": "manifest03" ,
+		"mf:file": "manifest03.json" ,
+		"rdfs:comment": "Query pattern triple Associations"
+	} ,
+	"mf:entries": [ "test_1" ],
+	"test_1": {
+		"rdf:type": 	"testType01" ,
+		"mf:SUT":		"AddQPTRef" ,
+		"mf:name":		"testAddQPTRef" ,
+		"rdfs:comment":	"Basic BGP pattern." ,
+		"mf:action": {
+			"mf:subject": { "sparle_query": { "value" : "sparqlTools/QPTAssoc01.rq"}
+			},
+			"mf:data" : [ 
+				{	"id" : "1",
+					"sparql_iri":	{ "rdf:type" : "iri" , "value" : "ontoA:Patient" }, 
+					"EE_type":		{ "rdf:type" : "cls" , "value" : "CLASS" },
+					"qptCount": "1"
+				}, 
+				{	"id" : "2",
+					"sparql_iri":	{ "rdf:type" : "iri" , "value" : "ontoA:hasTemp" }, 
+					"EE_type":		{ "rdf:type" : "cls" , "value" : "PROP" },
+					"qptCount": "1"
+				},
+				{	"sparql_iri":	{ "rdf:type" : "iri" , "value" : "ontoA:Patient" }, 
+					"EE_type":		{ "rdf:type" : "cls" , "value" : "PROP" },
+					"id" : "3" ,
+					"qptCount": "1"
+				}
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "sparqlTools/QPTAssoc01.srj" , "id" : "1" },
+			{ "rdf:type": "PASS", "value": "sparqlTools/QPTAssoc01.srj" , "id" : "2" },
+			{ "rdf:type": "FAIL", "value": "AssertionError", "id" : "3" }
+		] 
+	}
+}

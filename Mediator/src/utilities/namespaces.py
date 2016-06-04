@@ -33,6 +33,8 @@ class NSManager():
         # Edoal Alignment names
         'ALIGNMENT'  : _CLARKS(NS['align'], 'Alignment')
     }
+    
+    LOCAL_BASE_PATH = 'C:/Users/brandtp/AppData/Local/My Local Documents/My/Git/Mediator/Mediator/src/'
  
     @staticmethod
     def _valid_uri_chars(exclude=[], *, uri_string=''):
@@ -65,11 +67,14 @@ class NSManager():
     def isIRI(cls, iri):
         '''
         Validity is defined by absence of invalid characters, and
-        conforming to structure [some_text '://' authority '/' iri_expansion  ('/'|'#') iri_path]
+        conforming to structure <some_text '://' authority '/' iri_expansion  ('/'|'#') iri_path>
         '''
         #TODO: Replace for tooling in rfc3987 package
         if cls._valid_uri_chars(uri_string=iri, exclude=['/', ':']): # check for invalid characters
             preamble = []
+            # Check beginning '<' and closing '>', then strip these for less complex evaluation
+            if iri[0] != '<' or iri[-1] != '>': return False
+            iri = iri[1:-1]
             preamble = iri.split(':')
             if len(preamble) == 2 and preamble[0] != '':
                 # Found exactly 1 ':', now check if it is part of '://'?
@@ -113,7 +118,6 @@ class NSManager():
         return False
 
 
-      
     def __init__(self, nsDict={}, base=''):
         if base == '': base = self.NS['tno']
         self.base = base
@@ -122,7 +126,7 @@ class NSManager():
         self.bindPrefixes(self.NS)  # Register the standard namespaces
         self.bindPrefixes(nsDict=nsDict)
 
-    def newPrefix(self, base_name='mns'):
+    def newPrefix(self, base_name='_mns'):
         self._prefixCntr+=1
         return base_name + str(self._prefixCntr)
     
@@ -191,6 +195,9 @@ class NSManager():
          form as it can be found in the namespace table.
         '''
         assert self.isIRI(in_string), "Expected to split an IRI, but got <{}>".format(in_string)
+        # Get rid of the '< >' pair
+        if in_string[0] == '<': in_string = in_string[1:]
+        if in_string[-1] == '>': in_string = in_string[:-1]
         if '#' in in_string:
             # Assume one '#' character only
             ns, lbl = in_string.rsplit('#', maxsplit=1)
@@ -214,25 +221,34 @@ class NSManager():
             return self.getPrefix(ns), lbl
         else: raise RuntimeError('Can only process Clarks, IRI or QName notation, unknown notation ({})'.format(in_string))
         
+    def nsConcat(self, ns, name):
+        # Just concatenate the value in the nsmap and the name, but consider the use of a separator, and watch the '< >' pair
+        hd = '<'
+        sep = '/'
+        if ns[-1] == '>': ns = ns[:-1]
+        if ns[0] == '<': hd = ''
+        if ns[-1] in ["/", "#"]: sep = ''
+        return hd + sep.join((ns, name)) + '>'
+
     def asIRI(self, in_string):
         assert isinstance(in_string,str), "Cannot turn {} into an IRI notation".format(type(in_string))
         if self.isIRI(in_string): return in_string
         elif self.isQName(in_string):
             prefix, name = in_string.split(":")
             if prefix == '' or prefix == None:
-                if self.base[-1] in ["/", "#"]:
-                    return self.base + name
-                else: return self.base + "/" + name
+                return self.nsConcat(self.base, name)
             elif prefix in self.nsmap:
-                return "".join((self.nsmap[prefix], name))
+                return self.nsConcat(self.nsmap[prefix], name)
             raise RuntimeError('Cannot turn "{}" into IRI due to missing XMLNS prefix in registered namespaces'.format(in_string))
         elif self.isClarks(in_string): 
             ns, lbl = in_string[1:].split("}")
-            return self.expand(ns) + lbl
+            exp = self.expand(ns)
+            return self.nsConcat(exp, lbl)
+        elif self.isIRI('<' + in_string + '>'): return '<' + in_string + '>'
         else: raise RuntimeError('Can only process Clarks, IRI or QName notation, unknown notation ({})'.format(in_string))
     
     def asClarks(self, in_string):
-        assert isinstance(in_string,str), "Cannot turn {} into a Clark's IRI notation".format(type(in_string))
+        assert isinstance(in_string,str), "Cannot turn non-string {} into a Clark's IRI notation".format(type(in_string))
         if self.isClarks(in_string): return in_string
         elif self.isQName(in_string):
             prefix, name = in_string.split(":")

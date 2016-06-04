@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE rdf:RDF [
 <!ENTITY xsd "http://www.w3.org/2001/XMLSchema#">
-<!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA#">
+<!ENTITY foaf	"http://xmlns.com/foaf/0.1/">
+<!ENTITY ontoA	"http://tutorial.topbraid.com/ontoA/">
 <!ENTITY ontoB	"http://tutorial.topbraid.com/ontoB#">
 <!ENTITY proton "http://proton.semanticweb.org/">
+<!ENTITY medtfn "http://ts.tno.nl/mediator/1.0/transformations#">
 ]>
 
 <rdf:RDF xmlns="http://knowledgeweb.semanticweb.org/heterogeneity/alignment#"
@@ -13,13 +15,12 @@
 	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" 
 	xmlns:dc="http://purl.org/dc/elements/1.1/"
 	xmlns:ex="http://example.org" 
-	xmlns:ontoA="http://ds.tno.nl/ontoA/#"
-	xmlns:ontoB="http://ds.tno.nl/ontoB/#"
 	xmlns:proton="http://proton.semanticweb.org/"
 	xmlns:edoal="http://ns.inria.org/edoal/1.0/#"
-	xml:base="http://ds.tno.nl/tempC-tempF/" >
+	xmlns:foaf="http://xmlns.com/foaf/0.1/"
+	xml:base="http://ts.tno.nl/tempC-tempF/" >
 	
-	<Alignment rdf:about="http://ds.tno.nl/tempC-tempF/">
+	<Alignment rdf:about="http://ts.tno.nl/tempC-tempF/">
 		<xml>yes</xml>
 		<dc:creator>PaulBrandt</dc:creator>
 		<dc:date>2015/08/25</dc:date>
@@ -48,10 +49,10 @@
 		<map>
 			<Cell rdf:about="MappingRule_0">
 				<entity1>
-					<edoal:Class rdf:about="&ontoA;TempInC" />
+					<edoal:Property rdf:about="&ontoA;hasTemp" />
 				</entity1>
 				<entity2>
-					<edoal:Class rdf:about="&ontoB;TempInF" />
+					<edoal:Property rdf:about="&ontoB;hasTempInF" />
 				</entity2>
 				<measure rdf:datatype="&xsd;float">1.0</measure>
 				<relation>Equivalence</relation>
@@ -59,13 +60,13 @@
 					<edoal:Transformation edoal:direction="o-">
 						<!-- F = C x 9/5 + 32 -->
 						<edoal:entity1>
-							<edoal:Apply edoal:operator="http://ds.tno.nl/FuncC2F">
+							<edoal:Apply edoal:operator="&medtfn;unitconversion/CtoF">
 								<edoal:arguments rdf:parseType="Collection">
-									<edoal:Class rdf:about="&ontoA;TempInC" />
+									<edoal:Property rdf:about="&ontoA;hasTemp" />
 								</edoal:arguments>
 							</edoal:Apply>
 						</edoal:entity1>
-						<edoal:entity2><edoal:Class rdf:about="&ontoB;TempInF" /></edoal:entity2>
+						<edoal:entity2><edoal:Property rdf:about="&ontoB;hasTempInF" /></edoal:entity2>
 					</edoal:Transformation>
 				</edoal:transformation>
 			</Cell>

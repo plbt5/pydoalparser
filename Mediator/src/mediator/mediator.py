@@ -6,12 +6,15 @@ Created on 26 feb. 2016
 
 
 from parsertools.parsers.sparqlparser import parseQuery
-
+from utilities import namespaces
+from mediator import EDOALparser
+import os.path
+from builtins import str
 
 class Mediator(object):
     '''
-    The Mediator class performs translations of sparql queries or sparql variable bindings. This translation is based
-    upon mappings from an alignment. Either a translation succeeds, resulting in a translated sparql query or variable binding, or
+    The Mediator class mediates the semantic communication between a pair of interacting applications. To that end, it performs translations of sparql queries or sparql variable bindings. 
+    This translation is based upon mappings from an alignment. Either a translation succeeds, resulting in a translated sparql query or variable binding, or
     fails. In the latter case the mediator provides information on the reason for failing, for other classes to proceed upon in
     a protocolised way of operation.
     '''
@@ -30,22 +33,48 @@ class Mediator(object):
             'binding'   : 'BNDNG'
             }
 
-
+    class nsDict(dict):
+        def __init__(self):
+            super().__init__()
+        def update(self, *args, **kwargs):
+            return dict.update(self, *args, **kwargs)
    
-    def __init__(self, alignment):
+    def __init__(self, nsDict={}, *, about=None):
         '''
-        The mediator represents one complete EDOAL Alignment, as follows:
-            self.nsMgr   : utilities.NSManager : a NamespaceManager that can keep track of the namespaces in use
+        The mediator represents at least one complete EDOAL Alignment, as follows:
+            self.nsMgr       : utilities.NSManager : a NamespaceManager that can keep track of the namespaces in use
                                 and can convert between prefix and qnames and what have you
-            self.about   : string              : the name of this mediator (sourced from the alignment)
-            self.corrs   : Dictionary          : Dictionary of Correspondences, indexed by name of the correspondence
+            self.about       : string              : the name of this mediator
+            self.alignments  : Dict of Alignment   : Dictionary of Alignments, indexed by name of the alignment_element
         '''
-        self.nsMgr = alignment.nsMgr
-        self.about = alignment.getAbout()
-        self.corrs = alignment.getCorrespondences()
+        
+        assert isinstance(about, str) and about != '', "Mediator requires an ID"
+        mediatorNSs = { 'med'   : 'http://ts.tno.nl/mediator/1.0/',
+                'medtfn': 'http://ts.tno.nl/mediator/1.0/transformations#',
+                'dc'    : 'http://purl.org/dc/elements/1.1/',
+                'foaf'  : "http://xmlns.com/foaf/0.1/",
+                'edoal' : EDOALparser.Alignment.EDOAL_NAMESPACE,
+                'align' : 'http://knowledgeweb.semanticweb.org/heterogeneity/alignment#',
+                'alext' : 'http://exmo.inrialpes.fr/align/ext/1.0/'
+                 }
+        # Combine the default namespaces with the presented namespace, but reject double prefixes/keys
+        for key in nsDict.keys():
+            assert not key in mediatorNSs.keys()
+        mediatorNSs.update(nsDict)
+        print("mediator ns:", mediatorNSs)
+        self.nsMgr = namespaces.NSManager(nsDict=mediatorNSs, base='http://knowledgeweb.semanticweb.org/heterogeneity/alignment#')
+        if self.nsMgr == None: raise RuntimeError("Fatal: Couldn't create a namespace manager")
+        self.about = self.nsMgr.asIRI(about)
+        self.alignments = {}
+        
+    def addAlignment(self, alignment_filename=''):
+        assert alignment_filename != '', "Name of file containing alignment expected"
+        assert os.path.isfile(alignment_filename), "Cannot find file {}".format(alignment_filename)
+        alignment = EDOALparser.Alignment(fn = alignment_filename, nsMgr=self.nsMgr)
+        self.alignments[alignment.getAbout()] = alignment
         
     def getNSs(self):
-        return(str(self.nsMgr))
+        return(self.nsMgr)
             
     def translate(self,data):
         '''
@@ -67,17 +96,22 @@ class Mediator(object):
         rq = parseQuery(data)
         if rq == []:
             raise RuntimeError("Couldn't parse the following query:\n{}".format(data))
-        self.nsMgr.bindPrefixesFrom(rq)
+#         self.nsMgr.bindPrefixesFrom(rq)
+        print(rq.dump())
+        rq.expandIris()
+        print (rq.dump())
         rq.render()
-        for corr in self.corrs:
-#             print(corr)
-            print(corr.translate(rq))
+        for name, align in self.alignments.items():
+            print("Translating according to Alignment '{}'".format(name))
+            for corr in align.getCorrespondences():
+                print(corr)
+                print(corr.translate(rq))
             
     def __len__(self):
         '''
-        Calculates the length of the Mediator as the amount of Correspondences it contains.
+        Calculates the length of the Mediator as the amount of Alignments it contains.
         '''
-        return len(self.corrs)     
+        return len(self.alignments)     
     
     def getName(self):
         '''
@@ -89,15 +123,16 @@ class Mediator(object):
         '''
         Produce a rendering of the Mediator 
         '''
-        #TODO: Produce a rendering of the Mediator in EDOAL XML
-        s = self.__str__()
-        for k, v in sorted(self.corrs.items()):
-            s += v.render()
-        return s
+        return repr(self)
     
     def __str__(self):
-        return self.getName() + ' (onto1: ' + self.onto1.find(str(self.nsMgr.asClarks(':Ontology'))).get(str(self.nsMgr.asClarks('rdf:about'))) + \
-            ' onto2: ' + self.onto2.find(str(self.nsMgr.asClarks(':Ontology'))).get(str(self.nsMgr.asClarks('rdf:about'))) + ')'
+        return repr(self)
+        
+    def __repr__(self):
+        s = self.getName() + ' has ({}) alignments'.format(len(self)) + ' ( '
+        for name,_ in self.alignments:
+            s += name + ' '
+        return s + ')\n' + self.getNSs()
     
 if __name__ == '__main__':
     print('running main')

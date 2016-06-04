@@ -28,14 +28,13 @@ A sparql-query is structured as follows:
 This module provides tools to relate the various elements of a query to each other, as well as to the EDOAL correspondences.
 '''
 
-from parsertools.parsers import sparqlparser
 from parsertools.base import ParseStruct
-
-#TODO: ParseStruct wijzigen naar SPARQLStruct from parsertools.parsers.sparqlparser
+from parsertools.parsers.sparqlparser import SPARQLParser
 
 from builtins import str
 from distutils.dist import warnings
 from utilities.namespaces import NSManager        
+from mediator import mediatorTools
 
     
 class Context():
@@ -72,16 +71,19 @@ class Context():
         
         class QPTripleRef():
             '''
-            A QPTripleRef contains the association between one Correspondence of an Alignment, and the sparql tree. From the latter,
-            it contains (i) all triples that the Correspondence is about, and hence, are to be translated, (ii) the position of the entity_expr 
-            in question in the triple, and (iii) the variables that are bound in this triples.
+            A QPTripleRef represents a single query pattern, i.e., an {s,p,o} BGP triple, which is referred to by an entity that is mentioned in a Correspondence.  
+            To that end it contains (i) the node in the parsed sparql tree that represents the edoal entity, (ii) its position in the triple, (iii) the nodes that form the triple, including their position in the triple, and (iv) the variables that are bound in this triples, if any.
+            Indeed, (i) and (ii) are repeated in (iii), however, (i) and (ii) underline its function as entity.
             '''
-            
+            #TODO: Extend this structure to enable the inclusion of more than one node as vehicle for an edoal entity. The current implementation only allows a triple to contain one edoal entity, which is an unnecessary limitation
             def __init__(self, about=None):
-                self.about = ''      # (ParseInfo): the atomic node in the sparql tree that is referred to by the Edoal Entity Element
-                self.type = ''       # (String): the Basic Graph Pattern position of this node: <S|P|O>
+                '''
+                Input: a node in the parsed sparql (ParseInfo) that is either a node or can be traced to a node, representing the entity element of interest.
+                '''
+                self.about = None      # (ParseInfo): the atomic node in the sparql tree that is referred to by the Edoal Entity Element
+                self.type = ''       # (String, canonical as Context.localLabels): the Basic Graph Pattern position of this node: <S|P|O>
                 self.binds = []      # (List of String)(optional): a list of names of two, one or zero (when BGPType=p) or one or zero (=s or =o) Vars that are bound by this node: <VAR1 | VAR2 | PNAME_LN>
-                self.associates = {} # (Dict(iri, ParseInfo)): the annotated (s,p,o) triple, each of which refers to a QPNode in the triple and is annotated with its BGP position.
+                self.associates = {} # (Dict{S|P|O, ParseInfo}): the annotated (s,p,o) triple, each of which refers to a QPNode in the triple and is annotated with its BGP position.
                 self.partOfRDF = ''  #TODO: The RDF Triple Pattern (s,p,o) (https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#defn_TriplePattern)
                                      #     that this node is part of (created)
                 #TODO: register our own namespace for mediator, and use its prefix to local labels, in order to prevent label mangling
@@ -92,9 +94,14 @@ class Context():
                 else: raise NotImplementedError("Creating QPTripleRef from non-atom node ({}) is not implemented, and considered bad practice.".format(atom))
             
             def setType(self, bgp_type=None):
-                assert bgp_type in [Context.localLabels['subject'],Context.localLabels['property'],Context.localLabels['object']], "Wrong type: Cannot add BGP type <{}>".format(bgp_type)
-                self.type = Context.localLabels[bgp_type]
-                self.addAssociate(self.type, self.about)
+                assert bgp_type != None, "Wrong type: Cannot add BGP position as None"
+                if bgp_type in ['subject','property','object']:
+                    self.type = Context.localLabels[bgp_type]
+                elif bgp_type in [Context.localLabels['subject'], Context.localLabels['property'], Context.localLabels['object']]:
+                    self.type = bgp_type
+                else:
+                    raise AttributeError("Expected a BGP position, but got {}".format(bgp_type))
+                self.addAssociate(bgp_type=self.type, assoc_node=self.about)
                 
             def addAssociate(self, bgp_type=None, assoc_node=None):
                 '''
@@ -105,14 +112,19 @@ class Context():
                 3 - TODO: when the BGP becomes complete after this last addition, it will generate an RDF triple from it and store it in its
                 subject QPTripleRef (not a triple store).
                 Input: 
-                * assoc_node:    The associated node, which is considered to be on a tree vertice that has no other branches. The method will throw a Runtime error
+                * assoc_node:   The associated node, which is considered to be on a tree vertice that won't split into other branches. The method will throw a Runtime error
                                 when there are branches found lower in the tree.
-                * bgp_type:      The position of the association node in the BGP triple. This can be either a string ('subject' | 'property' | 'object'), or
+                * bgp_type:     The position of the association node in the BGP triple. This can be either a string ('subject' | 'property' | 'object'), or
                                 a full blown URIRef of identical nature.
                 '''
                 # First figure out the bgp type
                 assert bgp_type != None and assoc_node != None, 'Cannot add empty querypattern qptRefs'
-                bgp_position = Context.localLabels[bgp_type]
+                if bgp_type in ['subject','property','object']: 
+                    bgp_position = Context.localLabels[bgp_type]
+                elif bgp_type in [Context.localLabels['subject'], Context.localLabels['property'], Context.localLabels['object']]:
+                    bgp_position = bgp_type
+                else:
+                    raise AttributeError("Expected a BGP position, but got {}".format(bgp_type))
                 
                 # Now find the terminal/atom of the association node
                 atom = assoc_node.descend()
@@ -150,90 +162,93 @@ class Context():
                 return(result) 
             
             def __str__(self):
-                result = '( ' + \
-                    str(self.associates[Context.localLabels['subject']]) + ', ' + \
-                    str(self.associates[Context.localLabels['property']]) + ', ' + \
-                    str(self.associates[Context.localLabels['object']]) + ' )'
+                result = str(self.about) + ' as ' + str(self.type) + ' in BGP(' + \
+                    str(self.associates['SUBJ']) + ', ' + str(self.associates['PROP']) + ', ' + str(self.associates['OBJ']) + ')'
                 return(result)
             
         def __init__(self, *, entity_expression, sparql_tree, nsMgr):
             self.represents = '' # (EntityExpression) the EDOAL entity_iri (Class, Property, Relation, Instance) name;
                                  # This is in fact unnecessary because this is already stored in the higher Context class
-            self.qptRefs = []    # List of (QPTripleRef)s, i.e., implicit Query Pattern nodes that address the Entity Expression
+            self.qptRefs = []    # List of (QPTripleRef)s, i.e., Query Pattern nodes that address the Entity Expression
             self.pfdNodes = {}   # Temporary namespace dictionary. Dict of (ParseStruct)s indexed by prefix : the PrefixDecl nodes that this entity_iri relates to
             self.sparqlTree = '' # The sparql tree that this class uses to relate to
             
-            assert entity_expression.__class__.__name__ == 'EntityExpression' and isinstance(nsMgr, NSManager) and isinstance(sparql_tree, ParseStruct)
+            assert isinstance(entity_expression, mediatorTools.EntityExpression)
+            assert isinstance(nsMgr, NSManager)
+            assert isinstance(sparql_tree, ParseStruct)
             # Now find the atom of the main Node, i.e., what this is all about, and store it
             if entity_expression == None or sparql_tree == None:
                 raise RuntimeError("Require parsed sparql tree and sparql node, and edoal entity_iri expression.")
+#             print("context: entity expression {}".format(entity_expression))
             self.represents = entity_expression
             self.sparqlTree = sparql_tree
             # Now find the [PrefixDecl] nodes
             #TODO: Remove this after refactoring to locally valid namespace expansion etc. in SPARQLStruct
-            prefixDecls = sparql_tree.searchElements(element_type=sparqlparser.SPARQLParser.PrefixDecl)
-            _, src_iriref, _ = nsMgr.split(entity_expression.entity_expr)
+            prefixDecls = sparql_tree.searchElements(element_type=SPARQLParser.PrefixDecl)
+            _, src_iriref, _ = nsMgr.split(entity_expression.getIriRef())
             for prefixDecl in prefixDecls:
                 ns_prefix, ns_iriref = str(prefixDecl.prefix)[:-1], str(prefixDecl.namespace)[1:-1]
                 if ns_iriref == src_iriref: 
                     self.pfdNodes[ns_prefix] = {}
-                    self.pfdNodes[ns_prefix]['ns_iriref'] = ns_iriref
+                    self.pfdNodes[ns_prefix]['ns_iriref'] = '<' + ns_iriref + '>'
                     self.pfdNodes[ns_prefix]['node'] = prefixDecl
         
         def addQPTRef(self, query_node=None):
             assert isinstance(query_node, ParseStruct)
             atom = query_node.descend()
             if atom.isAtom():
-                theNode = self.QPTripleRefs(about=atom)
-                self.qptRefs.append(theNode)
+                thisEEQPTriple = self.QPTripleRef(about=atom)
+                self.qptRefs.append(thisEEQPTriple)
 #                 print("> QP [{}] represents <{}> as:".format(str(atom), self.represents))
                 # HERE WE CAN DO A TRANSLATION OF THE NODE!!! 
             #TODO: Recursive processing of branch when dumped into non-leaf branch 
-            else: warnings.warn("Not Implemented Yet: recursive processing when stepped in non-leaf branch ([{}])".format(atom))
+            else: raise NotImplementedError("Not Implemented Yet: recursive processing when stepped in non-leaf branch ([{}])".format(atom))
 
             # Identify the BGP position by searching the ancestor tree
             bgpPos = None
-            pp = query_node.getAncestors()
-            for p in pp:
-                nType = type(p).__name__
-                if len(p.getChildren()) == 1:
+            ancestors = query_node.getAncestors()
+#             print("{} ancestors found".format(len(ancestors)))
+            for ancestor in ancestors:
+                nType = type(ancestor).__name__
+                if len(ancestor.getChildren()) == 1:
                     # This is ancestor is not a branching node. Skip to the next ancestor but remember this node as, eventually,
                     # the top node of this branch
-                    topOfBranch = p
+                    topOfBranch = ancestor
                 elif nType == 'ObjectListPath':
                     # This Node represents an object
                     bgpPos = 'object'
-#                     print('[{}] determined as <{}>'.format(str(p),bgpPos))
-                    theNode.setType(bgpPos)
+#                     print('[{}] determined as <{}>'.format(str(ancestor),bgpPos))
+                    thisEEQPTriple.setType(bgpPos)
                     # Continue, and find binding with its subject
                 elif nType == 'VerbPath':
                     # This Node represents a property
                     bgpPos = 'property'
-                    theNode.setType(bgpPos)
-#                     print('[{}] determined as <{}>'.format(str(p),bgpPos))
+                    thisEEQPTriple.setType(bgpPos)
+#                     print('[{}] determined as <{}>'.format(str(ancestor),bgpPos))
                     # Continue, and find binding with its subject and object
                 elif nType == 'TriplesSameSubjectPath':
                     if bgpPos == None:
                         # We are in a TSSP leg, AND, we didn't determine the bgpPos yet, hence the main Node represents a subject
                         # and its children represent the rest of the triple.
                         bgpPos = 'subject'
-                        theNode.setType(bgpPos)    
-#                         print('[{}] determined as <{}>'.format(str(p),bgpPos))
+                        thisEEQPTriple.setType(bgpPos)    
+#                         print('[{}] determined as <{}>'.format(str(ancestor),bgpPos))
                         # Now process the children, except itself, to form the triple
-                        for plp in p.getChildren():
+                        for plp in ancestor.getChildren():
                             if type(plp).__name__ == 'VarOrTerm':
                                 # This is the branch of itself, hence skip
                                 pass
                             elif type(plp).__name__ == 'PropertyListPathNotEmpty':
                                 for c in plp.getChildren():
+#                                     print("assessing on node {}".format(c))
                                     if type(c).__name__ == 'ObjectListPath':
                                         # This is the object to the triple, hence associate it with the main Node
-                                        theNode.addAssociate(bgp_type='object', assoc_node=c)
+                                        thisEEQPTriple.addAssociate(bgp_type='object', assoc_node=c)
                                     elif type(c).__name__ == 'VerbPath':
                                         # This is the predicate to the triple, hence associate it with the main Node
-                                        theNode.addAssociate(bgp_type='property', assoc_node=c) 
+                                        thisEEQPTriple.addAssociate(bgp_type='property', assoc_node=c) 
                                     else: raise RuntimeError("Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]).".format(plp, type(plp).__name__,c,type(c).__name__))
-                            else: raise RuntimeError("Unexpectedly found [{}] as child of [{}], which was not anticipated".format(plp,p))
+                            else: raise RuntimeError("Unexpectedly found [{}] as child of [{}], which was not anticipated".format(plp,ancestor))
                         break
                     elif bgpPos == 'object':
                         # We are in a TSSP leg, AND, we did determine the bgpPos already, hence 
@@ -242,57 +257,59 @@ class Context():
                         # 2 - or a URIRef  
                         # and its children represent the rest of the triple.
                         #TODO: Check whether to discern between the type of TERM (BNode, URIREF, Literal)
-                        for c in p.getChildren():
+                        for c in ancestor.getChildren():
                             if type(c).__name__ == 'VarOrTerm':
                                 # This is the subject to the triple, hence associate it with the main Node
-                                theNode.addAssociate(bgp_type='subject', assoc_node=c) 
+                                thisEEQPTriple.addAssociate(bgp_type='subject', assoc_node=c) 
                             elif type(c).__name__ == 'PropertyListPathNotEmpty':
                                 for plp in c.getChildren():
+#                                     print("assessing on node {}".format(plp))
                                     if type(plp).__name__ == 'ObjectListPath':
                                         # Now in the branch leading to itself 
                                         pass
                                     elif type(plp).__name__ == 'VerbPath':
                                         # This is the predicate to the triple, hence associate it with the main Node
-                                        theNode.addAssociate(bgp_type='property', assoc_node=plp) 
+                                        thisEEQPTriple.addAssociate(bgp_type='property', assoc_node=plp) 
                                     else: raise RuntimeError("Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]).".format(plp, type(plp).__name__,c,type(c).__name__))
-                            else: raise RuntimeError("Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]).".format(c,type(c).__name__,p,type(p).__name__))
+                            else: raise RuntimeError("Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]).".format(c,type(c).__name__,ancestor,type(ancestor).__name__))
                         break
                     elif bgpPos == 'property': 
                         # We are in a TSSP leg, AND, we did determine the bgpPos already, hence 
                         # this is the grandparent of the main Node (predicate).
                         # Hence, find the object and subject to the main Node, and associate them to the main Node 
-                        for c in p.getChildren():
+                        for c in ancestor.getChildren():
                             if type(c).__name__ == 'VarOrTerm':
                                 # This is the subject to the triple, hence associate it with the main Node
-                                theNode.addAssociate(bgp_type='subject', assoc_node=c) 
+                                thisEEQPTriple.addAssociate(bgp_type='subject', assoc_node=c) 
                             elif type(c).__name__ == 'PropertyListPathNotEmpty':
                                 for plp in c.getChildren():
+#                                     print("assessing on node {}".format(plp))
                                     if type(plp).__name__ == 'ObjectListPath':
                                         # This is the object to the triple, hence associate it with the main Node
-                                        theNode.addAssociate(bgp_type='object', assoc_node=plp) 
+                                        thisEEQPTriple.addAssociate(bgp_type='object', assoc_node=plp) 
                                     elif type(plp).__name__ == 'VerbPath':
                                         # Now in the branch leading to itself 
                                         pass
                                     else: raise RuntimeError("Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]).".format(plp, type(plp).__name__,c,type(c).__name__))
-                            else: raise RuntimeError("Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]).".format(c,type(c).__name__,p,type(p).__name__))
+                            else: raise RuntimeError("Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]).".format(c,type(c).__name__,ancestor,type(ancestor).__name__))
                         break
                 elif nType == 'PropertyListPathNotEmpty':
                     if bgpPos == None:
                         # We are in a PLPNE leg, WITHOUT bgpPos assigned already, hence determine
-                        # whether the main node theNode represents either a property or an object
-                        for c in p.getChildren():
+                        # whether the main node thisEEQPTriple represents either a property or an object
+                        for c in ancestor.getChildren():
                             if c == topOfBranch:
-                                # This is the branch that carries the main node (theNode); we can now establish its type
+                                # This is the branch that carries the main node (thisEEQPTriple); we can now establish its type
                                 if type(c).__name__ == 'ObjectListPath':
                                     bgpPos='object'
-                                    theNode.setType(bgpPos)
+                                    thisEEQPTriple.setType(bgpPos)
                                     break
                                 elif type(c).__name__ == 'VerbPath':
                                     # Now in the branch leading to itself 
                                     bgpPos='property'
-                                    theNode.setType(bgpPos)
+                                    thisEEQPTriple.setType(bgpPos)
                                     break
-                                else: raise RuntimeError("Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]).".format(c, type(c).__name__,p,type(p).__name__))
+                                else: raise RuntimeError("Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]).".format(c, type(c).__name__,ancestor,type(ancestor).__name__))
                     elif bgpPos == 'property':
                         # We are in a PLPNE leg, AND, we did already determine the bgpPos (property), hence 
                         # process the object(s) that might be either:
@@ -300,18 +317,18 @@ class Context():
                         # 2 - a URIRef
                         #TODO: Check whether to discern between the type of TERM (BNode, URIREF, Literal)
                         #TODO: Implement the processing of the object of the triple
-                        warnings.warn("Found <{}>: processing more object(s) not yet implemented.".format(p))
+                        warnings.warn("Found <{}>: processing more object(s) not yet implemented.".format(ancestor))
                     elif bgpPos == 'object':
                         # We are in a PLPNE leg, AND, we did already determine the bgpPos (object), hence 
                         # process the property
                         #TODO: Implement the processing of the property of the triple 
-                        warnings.warn("Found [{}]: processing its property not yet implemented, if necessary.".format(p))
-                    else: warnings.warn("Found PLPNE [{}], however with unexpected bgpPos <{}>. This is an unforeseen branch that requires further study. All hell will break loose?!".format(p, bgpPos))
+                        warnings.warn("Found [{}]: processing its property not yet implemented, if necessary.".format(ancestor))
+                    else: warnings.warn("Found PLPNE [{}], however with unexpected bgpPos <{}>. This is an unforeseen branch that requires further study. All hell will break loose?!".format(ancestor, bgpPos))
                 elif nType == 'TriplesBlock':
-                    warnings.warn('We assumed this to be dead code, because the Query Pattern should had been processed by now. Found <{}> as ancestor to <{}>.'.format(nType, p))
+                    warnings.warn('We assumed this to be dead code, because the Query Pattern should had been processed by now. Found <{}> as ancestor to <{}>.'.format(nType, ancestor))
                     # Since we are looking for the triple context of the main Node, we ASSUME we can stop here.
                     break
-                else: warnings.warn("Unexpectedly found <{}> as ancestor to <{}>. This might be valid, but requires further study. All hell will break loose?!".format(nType, p))
+                else: warnings.warn("Unexpectedly found <{}> as ancestor to <{}>. This might be valid, but requires further study. All hell will break loose?!".format(nType, ancestor))
     
         def getQPTRef(self, about):
             refs = []
@@ -323,7 +340,7 @@ class Context():
             return None
                    
         def __str__(self):
-            result = ''
+            result = str(self.represents) + '\n\t'
             for n in self.qptRefs:
                 result += str(n)
             return(result)
@@ -374,8 +391,8 @@ class Context():
                 varRef = None
                 for ancestor in ancestors:
                     # For each ancestor, consider all its children.
-                    cc = ancestor.getChildren()
-                    if len(cc) > 1:
+                    ChildNodes = ancestor.getChildren()
+                    if len(ChildNodes) > 1:
                         # This is a relevant branch since this parent has more children.
                         pType = type(ancestor).__name__
 #                         print("parent <{}> is of type [{}]".format(ancestor, pType))
@@ -386,20 +403,20 @@ class Context():
                         elif pType == 'RelationalExpression':
 #                             print('Build [{}]'.format(pType))
                             #TODO: Add the possibility for chained variables, i.e., [?t > ?v]
-                            for c in cc:
-#                                 print(">>\t'{}' is a [{}]:".format(c, type(c).__name__))
-#                                 print(c.dump())
-                                cType = type(c).__name__
-                                if c == prevAncestor:
+                            for childNode in ChildNodes:
+#                                 print(">>\t'{}' is a [{}]:".format(childNode, type(childNode).__name__))
+#                                 print(childNode.dump())
+                                cType = type(childNode).__name__
+                                if childNode == prevAncestor:
                                     # Since we go up and down the branch, we found the original value_node itself, that, therefore, is the varRef
-                                    atom = c.descend()
+                                    atom = childNode.descend()
                                     if atom == None: 
                                         AttributeError("QM node unexpectedly appears parent of more than one atomic path. Found <{}> with siblings. Hell will break loose, hence quitting".format(atom))
                                     varRef = atom
                                 elif cType == 'NumericExpression':
                                     # This child is the top of branch leading to the restriction; 
                                     # The restriction is either a value, e.g., DECIMAL, or a variable
-                                    atom = c.descend()
+                                    atom = childNode.descend()
                                     if atom == None: 
                                         AttributeError("QM node unexpectedly appears parent of more than one atomic path. Found <{}> with siblings. Hell will break loose, hence quitting".format(atom))
                                     aType = type(atom).__name__
@@ -412,12 +429,12 @@ class Context():
 #                                         restriction = atom 
                                         #TODO: (Chained variables in constraint) However, the translation and transformation is much harder
                                     else: AttributeError("Did not expect [{}] node in Query Modifier ({}), VAR's or Values only.".format(aType, atom))
-                                elif str(c) in ['<', '<=', '>', '>=', '=', '!=']:
-#                                     print("Comparator {} found".format(c)) 
-                                    comparator = c
+                                elif str(childNode) in ['<', '<=', '>', '>=', '=', '!=']:
+#                                     print("Comparator {} found".format(childNode)) 
+                                    comparator = childNode
                                 else:
                                     # Unknown 
-                                    raise AttributeError("Unknown attribute: '{}'".format(c))
+                                    raise AttributeError("Unknown attribute: '{}'".format(childNode))
 #                             print("ValueLogicExpression complete: ({} {} {})".format(varRef, comparator, restriction))
                             self.update({'varRef': varRef, 'comparator': comparator, 'restriction': restriction})
                             break
@@ -428,11 +445,13 @@ class Context():
                     prevAncestor = ancestor
 
 
-        def __init__(self, sparql_tree=None, sparql_var_name=''):
+        def __init__(self, sparql_tree=None, sparql_var_name='', entity=None):
+            from mediator import mediatorTools
             '''
             Input:
-            - sparql_tree: (sparqlparser.ParseStruct) : The parsed tree must contain at least one 'FILTER' element, which must not be the tree root.
-            - sparql_var: (string)    : The name of the sparql variable, including the question mark.
+            - sparql_tree: (.ParseStruct) : The parsed tree must contain at least one 'FILTER' element, which must not be the tree root.
+            - sparql_var_name: (string)    : The name of the sparql variable, including the question mark.
+            - entity: ()    : the entity that this var is bound to
             Result: A class that contains the following attributes:
             - _boundVar: (string) : the name of the variable
             - _srcPath: the iriref of the path expression that leads to the Edoal <Property> or <Relation> element that this sparql variable is bound to
@@ -442,21 +461,23 @@ class Context():
             
             #TODO: Consider the necessity of the two object variables _boundVar & entity_iri
             self._boundVar = ''       # (String) the name of the [Var] that has been bounded in the QueryPatternTripleAssociation; Necessary?? 
-            self._srcPath = ''        # (mediatorTools.Path) the entity_iri expression that this var has been bound to
+            self._entity = ''        # (mediatorTools._Entity) the entity that this var has been bound to
             self._valueLogicExprList = []    # list of (ValueLogicExpression)s, each of them formulating one single constraint, e.g., (?var > DECIMAL)
             
-            assert isinstance(sparql_tree, sparqlparser.ParseStruct), "Parsed sparql tree expected, got {}".format(type(sparql_tree))
+            assert isinstance(entity, mediatorTools._Entity), "Entity expected, got {}".format(type(entity))
+            assert isinstance(sparql_tree, ParseStruct), "Parsed sparql tree expected, got {}".format(type(sparql_tree))
             assert sparql_tree != None or sparql_var_name != '', "Both parsed sparql tree and sparql variable required, but none found."
             filterElements = sparql_tree.searchElements(label="constraint")
             assert len(filterElements) == 1, "Do not support more than one FILTER clauses ({} found) in SPARQL (yet, please implement me)".format(len(filterElements))
             if filterElements == []:
                 warnings.warn('Cannot find [FILTER] node in the sparql tree; constraint other than type <Filter> not yet implemented')
             else:
-                nodeType = sparqlparser.SPARQLParser.Var   
+                self._entity = entity
+                nodeType = SPARQLParser.Var   
                 for fe in filterElements:
 #                     print("Searching for <{}> as type <{}> in {}: ".format(sparql_var_name, nodeType, fe))
                     # Find the [ValueLogical](s) in this FILTER clause that address the variable, by searching for nodes: 
-                    # 1 - of type 'sparqlparser.SPARQLParser.Var', and 
+                    # 1 - of type 'SPARQLParser.Var', and 
                     # 2 - having a value that equals the variable name
                     # The variable can occur in more than one value logic expression, hence expect at least one node
                     varElements = fe.searchElements(element_type=nodeType, value=sparql_var_name)
@@ -480,6 +501,9 @@ class Context():
         def getBoundVar(self):
             return self._boundVar
         
+        def getEntity(self):
+            return self._entity
+        
         def __str__(self):
             result = ''
             for vl in self._valueLogicExprList:
@@ -490,7 +514,7 @@ class Context():
             print('constraints: \n' + self.__str__())
 
 
-    def __init__(self, entity_type=sparqlparser.SPARQLParser.iri, *, entity_expression, sparqlTree, nsMgr ):
+    def __init__(self, entity_type=SPARQLParser.IRIREF, *, entity_expression, sparqlTree, nsMgr ):
         '''
         Generate the sparql context that is associated with the EntityExpression. If no entity_type is given, assume an IRI type.
         Returns the context, contained in attributes:
@@ -508,25 +532,30 @@ class Context():
         
 #         assert isinstance(entity_expression, Mediator.EntityExpression) and isinstance(sparqlTree, ParseStruct)
         assert isinstance(sparqlTree, ParseStruct) and isinstance(nsMgr, NSManager), "Parsed sparql tree and namespace mgr required"
-        assert entity_expression.__class__.__name__ == 'EntityExpression', "Cannot create context without subject entity expression"
+        assert isinstance(entity_expression, mediatorTools.EntityExpression), "Cannot create context without subject entity expression"
         
         if entity_expression.isEntityExpression(): raise NotImplementedError("Cannot process entity expressions yet, only simple entities. Got {}".format(entity_expression.getType()))
 
         self.nsMgr = nsMgr
         print("entity expr: {}".format(entity_expression))
-        self.entity_expr = entity_expression.getIriRef()
+        self.entity_expr = entity_expression
         #TODO: process other sparqlData than sparql query, i.e., rdf triples or graph, and sparql result sets
         self.parsedQuery = sparqlTree
         if self.parsedQuery == []:
             raise RuntimeError("Cannot parse the query sparqlData")
         
-        eePf, eeIri, eeTag = self.nsMgr.split(self.entity_expr)
+        eePf, eeIri, eeTag = self.nsMgr.split(self.entity_expr.getIriRef())
         src_qname = eePf + ':' + eeTag
+        print("eeIri: {}".format(eeIri))
+        print("eePf : {}".format(eePf))
+        print("eeTag: {}".format(eeTag))
+        print("eeOrg: {}".format(self.entity_expr.getIriRef()))
+        print("entity type {}".format(entity_type))
         
         # 1: Find the qptRefs for which the context is to be build, matching the Entity1 Name and its Type
-        srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value=src_qname)
+        srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value='<'+self.entity_expr.getIriRef()+'>')
         if srcNodes == []: 
-            raise RuntimeError("Cannot find element <{}> of type {} in sparqlData".format(src_qname, entity_type))
+            raise RuntimeError("Cannot find element <{}> of type {} in sparqlData".format(self.entity_expr.getIriRef(), entity_type))
         
         # 2: Build the context
         self.qptAssocs = []         # List of (QPTripleRef)s that address the edoal entity_iri.
@@ -539,18 +568,17 @@ class Context():
         # 2.1.2: For each node, find the qptAssocs
         for qrySrcNode in srcNodes:
             # Find and store the QueryPatternTripleAssociation of the main Node
-#             print("Building context for <{}>".format(qrySrcNode))
-#             print('='*30)
-            #TODO: Probably rq is too high in the tree - consider a lower node such as [WhereClause] (i.e., qryPatterns) or [GroupGraphPattern] 
-            qpt = self.QueryPatternTripleAssociation(entity_expression=entity_expression, sparql_tree=self.parsedQuery, nsMgr=self.nsMgr)
+            print("Building context for {}".format(qrySrcNode))
+            print('='*30)
+            qpt = self.QueryPatternTripleAssociation(entity_expression=self.entity_expr, sparql_tree=self.parsedQuery, nsMgr=self.nsMgr)
             qpt.addQPTRef(qrySrcNode)
             self.qptAssocs.append(qpt)
-#             print("QP triple(s) determined: \n\t", str(qpt))
-#             print("Vars that are bound by these: ")
-#             for n in qpt.qptRefs:
-#                 for b in n.binds:
-#                     print("\t<{}>".format(b))
-#                 print("\n")
+            print("QP triple(s) determined: \n\t", str(qpt))
+            print("Vars that are bound by these: ")
+            for n in qpt.qptRefs:
+                for b in n.binds:
+                    print("\t<{}>".format(b))
+                print("\n")
         
         # 2.2: Next, build the Query Modifiers that address the variables that are bound by the considered Query Pattern
 #         print('-+'*30)
@@ -559,7 +587,7 @@ class Context():
         
 #         filterTop = list(qryPatterns[0].searchElements(element_type=GraphPatternNotTriples))[0]
         #TODO: Assumed one [GraphPatternNotTriples] (hence, list(...)[0])  
-        filterTop = self.parsedQuery.searchElements(element_type=sparqlparser.SPARQLParser.GraphPatternNotTriples)
+        filterTop = self.parsedQuery.searchElements(element_type=SPARQLParser.GraphPatternNotTriples)
         if filterTop == []:
             raise RuntimeError("Cannot find Query Modifiers clause (Filter)")
 #             print('Top for QM part of tree:')
@@ -570,12 +598,12 @@ class Context():
                 for var in qpNode.binds:
                     # Find the ValueLogicExpression that addresses this variable
                     self.constraints[str(var)] = []
-#                     print("Elaborating on var <{}>".format(str(var)))
+                    print("Elaborating on var <{}>".format(str(var)))
 #                     print('='*30)
                     # 3 - determine and store its value logics
                     # Cycle over every FILTER subtree
                     for filter in filterTop:
-                        vc = self.VarConstraints(sparql_tree=filter, sparqle_var=str(var))
+                        vc = self.VarConstraints(sparql_tree=filter, sparql_var_name=str(var), entity = self.entity_expr)
                         self.constraints[str(var)].append(vc)
 
 

@@ -12,31 +12,24 @@ class TestMediator(unittest.TestCase):
 
     
     def setUp(self):
-        from mediator.EDOALparser import ParseAlignment
-        ns = {'rdf': "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-              'xsd': "http://www.w3.org/2001/XMLSchema#",
-              'align':"http://knowledgeweb.semanticweb.org/heterogeneity/alignment#",
-              'edoal':'http://ns.inria.org/edoal/1.0/#',
-              't'   : 'http://ts.tno.nl/mediator/test#'
-              }
-        self.nsMgr = namespaces.NSManager(ns, "http://ts.tno.nl/mediator/test#")
-        self.align = ParseAlignment("resources/alignPassTransformation1.xml")
+        from mediator.EDOALparser import Alignment
+
+        self.fn="../examples/alignTemp1A-1B.xml"
         self.query = '''
-            PREFIX ns:     <http://tutorial.topbraid.com/ontoA/>
-            PREFIX foaf:   <http://xmlns.com/foaf/0.1/>
-            PREFIX xsd:    <http://www.w3.org/2001/XMLSchema>
+            PREFIX  ontoA:  <http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#>
+            PREFIX  rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns>
+            PREFIX  xsd:    <http://www.w3.org/2001/XMLSchema>
             
-            SELECT ?p ?t WHERE 
-                {
-                    ?p a foaf:Person .
-                    ?p ns:hasTemp ?t .
-                    ?p ns:hasAge ?a .
-                    ?t a ns:TempInC .
-                     FILTER ( 
-                                 ( ?t > 37.0 ) &&
-                                 ( ?a < 37.0 ) 
-                             ).
-                } 
+            SELECT ?p ?t
+            WHERE {
+                ?p rdf:type ontoA:Patient .
+                ?p ontoA:hasTemp ?t;
+                   ontoA:hasAge ?a.
+                FILTER ( 
+                    ( ?t > 37.0 ) && 
+                    ( ?a < 37.0 ) 
+                )
+            }
             '''
 
     def tearDown(self):
@@ -45,14 +38,20 @@ class TestMediator(unittest.TestCase):
        
     def testMediator(self):
 
-        m = Mediator(self.align)
-        m.translate(self.query)
-        
-        with self.assertRaises(TypeError):
+        # Fail cases
+        with self.assertRaises(AssertionError):
             Mediator(None) 
-             
-        with self.assertRaises(TypeError):
-            Mediator("string type") 
+        with self.assertRaises(AssertionError):
+            Mediator(12.0) 
+        
+        # Success case
+        m = Mediator(about='ts:myMediator', nsDict={'ts'   : 'http://ts.tno.nl/mediator/1.0/test#'})
+        print("m: \n", m.getNSs())
+        assert m.getNSs().nsConcat(m.getNSs().expand('ts'),'myMediator') == m.getName(), "Expected {}, got {}".format(m.getNSs().nsConcat('ts','myMediator'), m.getName())
+        
+        m.addAlignment(alignment_filename=self.fn)
+        
+        m.translate(self.query)
 
         
 if __name__ == "__main__":
