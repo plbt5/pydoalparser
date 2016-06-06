@@ -162,7 +162,10 @@ class Context():
                 return(result) 
             
             def __str__(self):
-                result = str(self.about) + ' as ' + str(self.type) + ' in BGP(' + ",".join(list(self.associates)) + ')'
+                bgpList = []
+                for assoc in self.associates:
+                    bgpList.append(str(self.associates[assoc]))
+                result = str(self.about) + ' as ' + str(self.type) + ' in BGP(' + ",".join(bgpList) + ')'
                 return(result)
             
         def __init__(self, *, entity_expression, sparql_tree, nsMgr):

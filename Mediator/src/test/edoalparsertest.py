@@ -50,14 +50,14 @@ class TestEDOALParser(unittest.TestCase):
             'pass': {'resources/alignPassSimple0.xml':                      # Simple Class-EQ-Class, Prop-EQ-Prop, Reln-EQ-Reln
                       {'about': 'http://ds.tno.nl/ontoA-ontoB/CPR-EQ-CPR', 
                        'admin': ['yes', 'PaulBrandt', '2015/08/25', 'manual', 'TEST DATA (simple alignments)', '2EDOAL', '?*'],
-                       'ontoS': ["http://tutorial.topbraid.com/ontoA#", None, "http://www.w3.org/2002/07/owl#", "OWL1.0"],
-                       'ontoT': ["http://tutorial.topbraid.com/ontoB#", "resources/nl/test1/ontoB.xml", "http://www.w3.org/2002/07/owl#", "OWL1.0"]
+                       'ontoS': ["<http://tutorial.topbraid.com/ontoA#>", None, "<http://www.w3.org/2002/07/owl#>", "OWL1.0"],
+                       'ontoT': ["<http://tutorial.topbraid.com/ontoB#>", "resources/nl/test1/ontoB.xml", "<http://www.w3.org/2002/07/owl#>", "OWL1.0"]
                        },
                      'resources/wine_align.xml':                            # Simple Class-EQ-Class, Prop-EQ-Prop, Reln-LT-Reln,
                       {'about': 'http://oms.omwg.org/wine-vin/',            #   & one SmplSrcCls-EQ-CmplxTgtCls, one CmpxlSrcCls-LT-CmplxTgtCls
                        'admin': ['yes', 'http://www.scharffe.fr/foaf.rdf', '2006/06/07', 'manual', 'TESTcase: hugely adapted from original wine-vin example', '2EDOAL', '**'],
-                       'ontoS': ["http://www.w3.org/TR/2003/CR-owl-guide-20030818/wine#", None, "http://www.w3.org/TR/owl-guide/", "owl"],
-                       'ontoT': ["http://ontology.deri.org/vin#", "http://www.scharffe.fr/ontologies/OntologieDuVin.wsml", "http://www.wsmo.org/wsml/wsml-syntax/wsml-dl", "wsml"]
+                       'ontoS': ["<http://www.w3.org/TR/2003/CR-owl-guide-20030818/wine#>", None, "<http://www.w3.org/TR/owl-guide/>", "owl"],
+                       'ontoT': ["<http://ontology.deri.org/vin#>", "http://www.scharffe.fr/ontologies/OntologieDuVin.wsml", "<http://www.wsmo.org/wsml/wsml-syntax/wsml-dl>", "wsml"]
                     }
                 },
             'fail': 

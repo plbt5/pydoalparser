@@ -570,7 +570,8 @@ class Correspondence():
         # Determine the sparql context for the source entity expression in the parsed sparql tree, i.e., determine:
         # the Node(s), their binding(s) and their constraining expression(s)
         print("namespace: ", str(self.nsMgr))
-        context = Context(entity_expression=srcEE, sparqlTree=rq, nsMgr=self.nsMgr)
+
+        context = Context(entity_expression=srcEE, entity_type=sparqlparser.SPARQLParser.iri, sparqlTree=rq, nsMgr=self.nsMgr)
         print("Created context:")
         context.render()
 
