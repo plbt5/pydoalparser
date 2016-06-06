@@ -162,8 +162,7 @@ class Context():
                 return(result) 
             
             def __str__(self):
-                result = str(self.about) + ' as ' + str(self.type) + ' in BGP(' + \
-                    str(self.associates['SUBJ']) + ', ' + str(self.associates['PROP']) + ', ' + str(self.associates['OBJ']) + ')'
+                result = str(self.about) + ' as ' + str(self.type) + ' in BGP(' + ",".join(list(self.associates)) + ')'
                 return(result)
             
         def __init__(self, *, entity_expression, sparql_tree, nsMgr):
@@ -553,9 +552,9 @@ class Context():
         print("entity type {}".format(entity_type))
         
         # 1: Find the qptRefs for which the context is to be build, matching the Entity1 Name and its Type
-        srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value='<'+self.entity_expr.getIriRef()+'>')
+        srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value=self.entity_expr.getIriRef())
         if srcNodes == []: 
-            raise RuntimeError("Cannot find element <{}> of type {} in sparqlData".format(self.entity_expr.getIriRef(), entity_type))
+            raise RuntimeError("Cannot find element '{}' of type '{}' in sparqlData".format(self.entity_expr.getIriRef(), entity_type))
         
         # 2: Build the context
         self.qptAssocs = []         # List of (QPTripleRef)s that address the edoal entity_iri.

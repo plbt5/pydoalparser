@@ -170,8 +170,10 @@ class Alignment():
             o = alignment_element.find(str(ns_mgr.asClarks('align:Ontology')))
             if (o == None): 
                 raise ValueError('Missing required ontology element ({})'.format(str(ns_mgr.asClarks('align:Ontology'))))
-            self.name = o.get(NSManager.CLARKS_LABELS['RDFABOUT'], default='')
-            if (self.name == '') or (self.name == None): 
+            #TODO: implement RFC3987 for namespaces and, particularly in this case, to create a valid iri as 'scheme ":" hier-part' (see https://tools.ietf.org/html/rfc3986#section-3)
+            # Now, we settle for assuming the about label represents a valid iri, and enclosing that in an '< >' pair 
+            self.name = '<' + o.get(NSManager.CLARKS_LABELS['RDFABOUT'], default='') + '>'
+            if (self.name == ''): 
                 raise ValueError('Ontology id as {} attribute is required'.format(NSManager.CLARKS_LABELS['RDFABOUT']))
             
             l = o.find(str(ns_mgr.asClarks('align:location')))
@@ -182,7 +184,9 @@ class Alignment():
             f = o.find(path)
             if (f == '') or (f == None): 
                 raise ValueError('Ontology id as {} attribute is required'.format(path))
-            self.formalism_uri = f.get(str(ns_mgr.asClarks('align:uri')), default='')
+            #TODO: implement RFC3987 for namespaces and, particularly in this case, to create a valid iri as 'scheme ":" hier-part' (see https://tools.ietf.org/html/rfc3986#section-3)
+            # Now, we settle for assuming the about label represents a valid iri, and enclosing that in an '< >' pair 
+            self.formalism_uri = '<' + f.get(str(ns_mgr.asClarks('align:uri')), default='') + '>'
             self.formalism_name = f.get(str(ns_mgr.asClarks('align:name')), default='')
             
         def __repr__(self):

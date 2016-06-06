@@ -17,8 +17,8 @@ class TestMediator(unittest.TestCase):
         self.fn="../examples/alignTemp1A-1B.xml"
         self.query = '''
             PREFIX  ontoA:  <http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#>
-            PREFIX  rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns>
-            PREFIX  xsd:    <http://www.w3.org/2001/XMLSchema>
+            PREFIX  rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX  xsd:    <http://www.w3.org/2001/XMLSchema#>
             
             SELECT ?p ?t
             WHERE {
@@ -50,6 +50,10 @@ class TestMediator(unittest.TestCase):
         assert m.getNSs().nsConcat(m.getNSs().expand('ts'),'myMediator') == m.getName(), "Expected {}, got {}".format(m.getNSs().nsConcat('ts','myMediator'), m.getName())
         
         m.addAlignment(alignment_filename=self.fn)
+        for align in m.alignments:
+            print("Alignment: ", m.alignments[align].getAbout())
+            print("\tsource Ont: ", m.alignments[align].getSrcOnto())
+            print("\ttarget Ont: ", m.alignments[align].getTgtOnto())
         
         m.translate(self.query)
 
