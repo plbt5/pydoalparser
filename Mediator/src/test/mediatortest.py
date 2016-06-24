@@ -31,6 +31,9 @@ class TestMediator(unittest.TestCase):
                 )
             }
             '''
+        self.mediator = Mediator(about='ts:myMediator', nsDict={'ts'   : 'http://ts.tno.nl/mediator/1.0/test#'})
+        assert self.mediator.getNSs().nsConcat(self.mediator.getNSs().expand('ts'),'myMediator') == self.mediator.getName(), "Expected {}, got {}".format(self.mediator.getNSs().nsConcat(self.mediator.getNSs().expand('ts'),'myMediator'), self.mediator.getName())
+        
 
     def tearDown(self):
         pass
@@ -45,21 +48,18 @@ class TestMediator(unittest.TestCase):
             Mediator(12.0) 
         
         # Success case
-        print("Input query: \n", self.query)
-        m = Mediator(about='ts:myMediator', nsDict={'ts'   : 'http://ts.tno.nl/mediator/1.0/test#'})
-        print("m: \n", m.getNSs())
-        assert m.getNSs().nsConcat(m.getNSs().expand('ts'),'myMediator') == m.getName(), "Expected {}, got {}".format(m.getNSs().nsConcat('ts','myMediator'), m.getName())
-        
-        m.addAlignment(alignment_filename=self.fn)
-        for align in m.alignments:
-            print(str(m.alignments[align]))
-            print("\tsource Ont: ", m.alignments[align].getSrcOnto())
-            print("\ttarget Ont: ", m.alignments[align].getTgtOnto())
+#         print("Input query: \n", self.query)
+#         print("m: \n", m.getNSs())
 
-        
-        result = m.translate(self.query)
-        print("Translated query: \n")
-        result.render()
+        self.mediator.addAlignment(alignment_filename=self.fn)
+#         for align in m.alignments:
+#             print(str(m.alignments[align]))
+#             print("\tsource Ont: ", m.alignments[align].getSrcOnto())
+#             print("\ttarget Ont: ", m.alignments[align].getTgtOnto())
+
+        result = self.mediator.translate(self.query)
+        print(str(result))
+        assert str(result) == "PREFIX mns_2: <http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#> PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> SELECT ?p ?t WHERE { ?p <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#PatientNaam> . ?p <http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#temperature_inF> ?t ; <http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#hasAge> ?a . FILTER ( ( ?t > 98.6 ) && ( ?a < 37.0 ) ) }"
 
         
 if __name__ == "__main__":

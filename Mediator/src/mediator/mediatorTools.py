@@ -361,78 +361,70 @@ class Transformation():
         '''
         assert self._condition, "Specification of condition required before making the transform"
         assert self._pmodule and self._mname, "Specification of operation required before making the transform"
-        
-        def transform(var_constraints=None):
+
+        def transform(entityIriRef='', value_logic_expr=None):
             from mediator.sparqlTools import Context
             '''
-            Transform the variable constraints according to the specified operation, but only when the specified condition is met. 
+            Transform a constraint according to the specified operation, but only when the specified condition is met. 
             Return the resulting value on success, return None otherwise.
             '''
+            #TODO: REFACTOR - this is far too complex. a transform should be made for a single ValueLogicExpression, not for a set of them!!
 
-            #TODO: include translation from source entity_expr to target entity_expr (result) 
-            assert isinstance(var_constraints, Context.VarConstraints), "Cannot perform a transformation without data args"
+            assert entityIriRef != '', "transform(): Missing entity."
+            assert isinstance(value_logic_expr, Context.VarConstraints.ValueLogicExpression), "transform(): Missing constraint."
             # First, get all argument values that are necessary to perform the transformation
             #TODO: implement correct sequence of operands, by use of kwargs. Needs a x-ref between operands and method signature.
             args = []
-            for valueLogicExpression in var_constraints.getValueLogicExpressions():
-                # For each value, check whether the conditions are met that guarantee a valid transformation
-                if self.hasValidCondition(valueLogicExpression):
-                    # Step 1 - Collect every necessary argument for the transformation. Every operand identifies some sort of transformation argument
-                    for operand in self._operands:
-                        # Establish the kind of argument that the operand represents
-                        print("operand: {}".format(operand))
-                        if operand.isLiteral():
-                            # A Literal *is* the argument, e.g.,  <Literal edoal:type="&xsd;integer" edoal:string="123" />
-                            # i.e., its actual value is the argument, here the string "123" that needs to be converted to an integer.
-                            val, val_type = operand.getLiteral()
-                            #TODO: Literal as operands must take into account the value type of the literal, this is now ignored which increases the fault sensitivity
-                            warnings.WarningMessage("Found literal operand, IGNORING the value type {}, using its value only ({}). Please implement me.".format(val_type, val))
-                            args.append(val)
-                        elif operand.isAttrExpression():
-                            # A Relation or Property *refer* to the argument, e.g., <edoal:Property rdf:about="&ontoB;hasTempInF" /> refers to a Property, the value
-                            # of which is the argument for the transformation. Hence, find the value that belongs to the variable (in the value_logic node) that is bound by this iriref
-                            # However, the relation or property might represent a path expression, hence distinguish between a path and a normal attr.expression
-                            if operand.hasPath():
-                                # the last element in the path is the one that bounds the variable
-                                #TODO: implement path expression in the transform()
-                                raise NotImplementedError("Path expression (on {}) cannot be elaborated in the Transform (yet, please implement me)".format(operand))
-                            else: 
-                                # Operand is an atomic property or relation, hence add the value of its bound variable, IF the var_constraints's entity equals the operand
+ 
+            if self.hasValidCondition(value_logic_expr):
+                # Step 1 - Collect every necessary argument for the transformation. Every operand identifies some sort of transformation argument
+                for operand in self.getOperands():
+                    # Establish the kind of argument that the operand represents
+                    print("operand: {}".format(operand))
+                    if operand.isLiteral():
+                        # A Literal *is* the argument, e.g.,  <Literal edoal:type="&xsd;integer" edoal:string="123" />
+                        # i.e., its actual value is the argument, here the string "123" that needs to be converted to an integer.
+                        val, val_type = operand.getLiteral()
+                        #TODO: Literal as operands must take into account the value type of the literal, this is now ignored which increases the fault sensitivity
+                        warnings.WarningMessage("Found literal operand, IGNORING the value type {}, using its value only ({}). Please implement me.".format(val_type, val))
+                        args.append(val)
+                    elif operand.isAttrExpression():
+                        # A Relation or Property *refer* to the argument, e.g., <edoal:Property rdf:about="&ontoB;hasTempInF" /> refers to a Property, the value
+                        # of which is the argument for the transformation. Hence, find the value that belongs to the variable (in the value_logic node) that is bound by this iriref
+                        # However, the relation or property might represent a path expression, hence distinguish between a path and a normal attr.expression
+                        if operand.hasPath():
+                            # the last element in the path is the one that bounds the variable
+                            #TODO: implement path expression in the transform()
+                            raise NotImplementedError("Path expression (on {}) cannot be elaborated in the Transform (yet, please implement me)".format(operand))
+                        else: 
+                            # Operand is an atomic property or relation, hence add the value of its bound variable, but only
+                            # if the var_constraint's entity equals the operand
 #                                 print("Comparing constraint entity ({}) with operand ({})".format(var_constraints.getEntity().getIriRef(), operand.getAttrExpression()))
-                                if var_constraints.getEntity().getIriRef() == operand.getAttrExpression():
-                                    print("VLE restriction: ", valueLogicExpression['restriction'])
-                                    args.append(str(valueLogicExpression['restriction']))
-                                else: warnings.warn("Transform: got {} but was expecting to transform {}; ignored".format(operand.getAttrExpression, var_constraints.getEntity()))
-                        elif operand.isIndividual():
-                            # Instances are always single entities that refer to an individual through its URI. Find the var that belongs to this URI, and get its value
-                            raise NotImplementedError("Cannot handle Individual operand ({}) definitions (yet, please implement).".format(operand))
-                        elif operand.isComputable():
-                            raise NotImplementedError("Cannot handle processing of recursive operation definitions (yet, please implement).")
-                            #TODO: implement recursive operations, i.e., performing a secondary operation to get the value for the principle operation.
-                            # The recursion call is simple, but where do we get the transformation information from? Hence, we must 
-                            # refer to another transformation object, and perform its Transform() method to get the appropriate value.
-                        else: raise RuntimeError("This should be dead code, apparently it isn't; got {} unexpectedly".format(operand.getEntityType()))
-                    print("args: [ ", end="")
-                    for arg in args: print("{} ".format(arg), end="")
-                    print("]")
-                    # Step 2 - Assure that we have precisely sufficient arguments
-                    assert len(self._operands) == len(args), "Cannot perform operation: expected {} arguments, got {}.".format(len(self._operands), len(args))
-                    # Step 3 - Call the actual function with the found values as its arguments 
-                    resultValue = self.getOperationResult(*args)
-                    return resultValue
-    #                     if operand.isLiteral():
-    #                         nodes = valueLogicExpression.searchElements(element_type=operand)
-    #                     if nodes == []: raise RuntimeError("Cannot find the operand [{}] to transform".format(operand))
-#                         for node in nodes:
-#                             for itemValue in node.getItems():
-#                                 if operand in [sparqlparser.DECIMAL, sparqlparser.INTEGER, sparqlparser.DOUBLE]:
-#                                     value = float(itemValue)
-#                                 else: value = str(itemValue)
-#                                 args.append(value)
-                else: 
-                    warnings.warn("Cannot transform data because conditions for '{}' are not met".format(valueLogicExpression))
-                    return None
-            return None
+                            if entityIriRef == operand.getAttrExpression():
+#                                 print("VLE restriction: ", value_logic_expr['restriction'])
+                                args.append(str(value_logic_expr['restriction']))
+                            else: warnings.warn("Transform: got {} but was expecting to transform {}; ignored".format(operand.getAttrExpression, entityIriRef))
+                    elif operand.isIndividual():
+                        # Instances are always single entities that refer to an individual through its URI. Find the var that belongs to this URI, and get its value
+                        raise NotImplementedError("Cannot handle Individual operand ({}) definitions (yet, please implement).".format(operand))
+                    elif operand.isComputable():
+                        raise NotImplementedError("Cannot handle processing of recursive operation definitions (yet, please implement).")
+                        #TODO: implement recursive operations, i.e., performing a secondary operation to get the value for the principle operation.
+                        # The recursion call is simple, but where do we get the transformation information from? Hence, we must 
+                        # refer to another transformation object, and perform its Transform() method to get the appropriate value.
+                    else: raise RuntimeError("This should be dead code, apparently it isn't; got {} unexpectedly".format(operand.getEntityType()))
+#                 print("args: [ ", end="")
+#                 for arg in args: print("{} ".format(arg), end="")
+#                 print("]")
+                # Step 2 - Assure that we have precisely sufficient arguments
+                assert len(self._operands) == len(args), "Cannot perform operation: expected {} arguments, got {}.".format(len(self._operands), len(args))
+                # Step 3 - Call the actual function with the found values as its arguments 
+                resultValue = self.getOperationResult(*args)
+                return resultValue
+            else: 
+                warnings.warn("Tranform(): Cannot transform data because conditions for constraint '{}' are not met".format(value_logic_expr))
+                return None
+
             
         self.transform = transform
     
@@ -589,7 +581,7 @@ class Correspondence():
 
         if not tgtEE.isAtomicEntity(): raise NotImplementedError("cannot translate into an entity *expression* (yet, please implement me), got {}".format(str(tgtEE)))
         tgt = self.nsMgr.asIRI(tgtEE.getIriRef())
-        print('tgt: "{}"'.format(tgt) )
+        print('Updating {} to {}'.format(srcEE.getIriRef(), tgt) )
 
         tgt_prefix, tgt_pf_expansion, tgt_iri_path = self.nsMgr.splitIri(tgtEE.getIriRef())
         tgt_prefix += ':'
@@ -624,24 +616,29 @@ class Correspondence():
         
         print ("looping over vars: {}".format(list(context.constraints.keys())))
         for var in context.constraints:
+            # Address all variable constraints that use this variable 
             for vc in context.constraints[var]:
-                if vc == '': break
-                print("\tvar: '{}', var constraint: '{}'".format(var, vc))
-#                 for vle in vc.getValueLogicExpressions():
-                for tf in self.getTransforms():
-                    for operand in tf.getOperands():
-                        if srcEE.isAtomicEntity():
-                            if srcEE.getIriRef() == operand.getIriRef(): 
-                                result = tf.transform(var_constraints = vc)
-                                for vle in vc.getValueLogicExpressions():
-                                    vle['restriction'].updateWith(str(result))
-                        else: 
-    #                         if any(map(lambda op: op in tf.getOperands(), srcEE.getEntities())):
-    #                             tf.transform(var_constraints = vc)
-                            raise NotImplementedError("Can only translate atomic entities, not entity expressions (yet, please implement me)")
+                if vc.getBoundVar() == '': break #TODO: Refactor how context.constraints[var] is being build, since a constraint is driven by a variable (toch??) and here we can/need to skip empty boundVars??
+                # Address all atomic value logic expressions, i.e., the dictionary with entries {'varRef': varRef, 'comparator': comparator, 'restriction': restriction}
+                for vle in vc.getValueLogicExpressions():
+                    print("\tvar: '{}', var constraint: '{}'".format(var, vle))
+                    # Now a value logic expression is found, now find the transformation to apply, i.e., loop over all transformations
+                    # TODO: refactor, since this is a clumsy way of finding the transformation that is appropriate to apply on this variable (or in fact, the entity it is bound by)
+                    if srcEE.isAtomicEntity():
+                        srcIriRef = srcEE.getIriRef()
+                    else: 
+#                         if any(map(lambda op: op in tf.getOperands(), srcEE.getEntities())):
+#                             tf.transform(var_constraints = vc)
+                        raise NotImplementedError("Can only translate atomic entities, not entity expressions (yet, please implement me)")
+                    for tf in self.getTransforms():
+                        for operand in tf.getOperands():
+                            if operand.getIriRef() == srcIriRef: 
+                                result = tf.transform(entityIriRef = srcIriRef, value_logic_expr = vle)
+                                print("Updating variable constraint {} into {}".format(vc, str(result)))
+                                vle['restriction'].updateWith(str(result))
         
-        print("Translation result: ", end="")
-        context.parsedQuery.render()
+#         print("Translation result: ", end="")
+#         context.parsedQuery.render()
         return True
 
 

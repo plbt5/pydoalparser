@@ -405,6 +405,7 @@ class Context():
                 input: The node in the sparql tree that represents the variable
                 The created object is a Dictionary with entries {'varRef': varRef, 'comparator': comparator, 'restriction': restriction}
                 '''
+                
                 assert isinstance(variable_node, ParseStruct) and type(variable_node).__name__ == 'Var', \
                     "Cannot create a Value Logic Constraint without a 'Var' to start with, got '{}'".format(type(variable_node))
 #                 print("Elaborating on valueLogic {} ({}) in tree: ".format(variable_node, type(variable_node)))
@@ -462,7 +463,9 @@ class Context():
                                     # Unknown 
                                     raise AttributeError("Unknown attribute: '{}'".format(childNode))
 #                             print("ValueLogicExpression complete: ({} {} {})".format(varRef, comparator, restriction))
-                            self.update({'varRef': varRef, 'comparator': comparator, 'restriction': restriction})
+
+                            super().__init__({'varRef': varRef, 'comparator': comparator, 'restriction': restriction})
+#                             self.update({'varRef': varRef, 'comparator': comparator, 'restriction': restriction})
                             break
                         else:
                             warnings.warn("Found '{}' element unexpectedly, ignoring".format(pType))
@@ -533,6 +536,7 @@ class Context():
         def __str__(self):
             result = ''
             for vl in self.getValueLogicExpressions():
+                #TODO: __str__() turn it into comma separated list of elements, as opposed to ( element ) ( element ) ...
                 result += '( '+ str(vl) + ' ) '
             return(result)
 
