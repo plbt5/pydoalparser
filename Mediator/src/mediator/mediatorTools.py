@@ -53,11 +53,11 @@ class EntityExpression():
     def getType(self):
         return type(self)
     
-    def isEntity(self):
-        return type(self) == _Entity
+    def isAtomicEntity(self):
+        return isinstance(self, _Entity)
     
-    def isEntityExpression(self):
-        return type(self) == _EntityConstruction
+#     def isEntityExpression(self):
+#         return isinstance(self, _EntityConstruction)
 
 
 class _EntityConstruction():
@@ -328,8 +328,14 @@ class Transformation():
     def getLocalMethod(self):
         return self._pmodule, self._mname
     
+    def getName(self):
+        return self._pmodule.__name__ + "/" + self._mname
+    
     def getOperationResult(self, *args,**kwargs):
         return getattr(self._pmodule, self._mname)(*args,**kwargs)
+    
+    def getOperands(self):
+        return self._operands
     
     def registerOperands(self, operands=None):
         '''
@@ -337,12 +343,14 @@ class Transformation():
         '''
         assert isinstance(operands, list), "Cannot register operands for python function without accessible list of operands"
         typesOfOperands = list(set([type(o) for o in operands]))
+        print("Register operand(s): {}, types: {}".format(','.join(map(str, operands)), typesOfOperands))
         assert len(typesOfOperands) == 1 and typesOfOperands[0] == Alignment.Value, "Cannot register operand; expected '{}', got '{}'".format(Alignment.Value, typesOfOperands[0])
         self._operands = operands
 
     def setCondition(self, condition=None):
         if condition: self._condition = condition
-        else: self._condition = lambda x: True
+        else: self._condition = lambda *x: True  #TODO: Condition for transformation: should the default not use lambda ** agrv *args: True, as opposed to current one, because a standard conditional check could involve more than one parameter?
+        print("Adding condition '{}'".format(self._condition))
 
     def hasValidCondition(self, *args):
         return self._condition(*args)
@@ -368,16 +376,17 @@ class Transformation():
             args = []
             for valueLogicExpression in var_constraints.getValueLogicExpressions():
                 # For each value, check whether the conditions are met that guarantee a valid transformation
-#                 print("vle: {}\n\tis valid: {}".format(valueLogicExpression, self.hasValidCondition(valueLogicExpression)))
                 if self.hasValidCondition(valueLogicExpression):
                     # Step 1 - Collect every necessary argument for the transformation. Every operand identifies some sort of transformation argument
                     for operand in self._operands:
                         # Establish the kind of argument that the operand represents
-#                         print("operand: {}".format(operand))
+                        print("operand: {}".format(operand))
                         if operand.isLiteral():
-                            # A Literal *is* the argument, i.e., its actual value is the argument.
+                            # A Literal *is* the argument, e.g.,  <Literal edoal:type="&xsd;integer" edoal:string="123" />
+                            # i.e., its actual value is the argument, here the string "123" that needs to be converted to an integer.
                             val, val_type = operand.getLiteral()
-                            #TODO: We ignore the value type of the literal, this might increase the fault sensitivity
+                            #TODO: Literal as operands must take into account the value type of the literal, this is now ignored which increases the fault sensitivity
+                            warnings.WarningMessage("Found literal operand, IGNORING the value type {}, using its value only ({}). Please implement me.".format(val_type, val))
                             args.append(val)
                         elif operand.isAttrExpression():
                             # A Relation or Property *refer* to the argument, e.g., <edoal:Property rdf:about="&ontoB;hasTempInF" /> refers to a Property, the value
@@ -388,10 +397,10 @@ class Transformation():
                                 #TODO: implement path expression in the transform()
                                 raise NotImplementedError("Path expression (on {}) cannot be elaborated in the Transform (yet, please implement me)".format(operand))
                             else: 
-                                # Operand is a simple property or relation, hence add the value of its bound variable, IF the var_constraints's entity equals the operand
+                                # Operand is an atomic property or relation, hence add the value of its bound variable, IF the var_constraints's entity equals the operand
 #                                 print("Comparing constraint entity ({}) with operand ({})".format(var_constraints.getEntity().getIriRef(), operand.getAttrExpression()))
                                 if var_constraints.getEntity().getIriRef() == operand.getAttrExpression():
-#                                     print("VLE restriction: ", valueLogicExpression['restriction'])
+                                    print("VLE restriction: ", valueLogicExpression['restriction'])
                                     args.append(str(valueLogicExpression['restriction']))
                                 else: warnings.warn("Transform: got {} but was expecting to transform {}; ignored".format(operand.getAttrExpression, var_constraints.getEntity()))
                         elif operand.isIndividual():
@@ -403,9 +412,9 @@ class Transformation():
                             # The recursion call is simple, but where do we get the transformation information from? Hence, we must 
                             # refer to another transformation object, and perform its Transform() method to get the appropriate value.
                         else: raise RuntimeError("This should be dead code, apparently it isn't; got {} unexpectedly".format(operand.getEntityType()))
-                        print("args: [ ", end="")
-                        for arg in args: print("{} ".format(arg), end="")
-                        print("]")
+                    print("args: [ ", end="")
+                    for arg in args: print("{} ".format(arg), end="")
+                    print("]")
                     # Step 2 - Assure that we have precisely sufficient arguments
                     assert len(self._operands) == len(args), "Cannot perform operation: expected {} arguments, got {}.".format(len(self._operands), len(args))
                     # Step 3 - Call the actual function with the found values as its arguments 
@@ -428,11 +437,10 @@ class Transformation():
         self.transform = transform
     
     def __str__(self):
-        return str(self._mname)
+        return "transformation: " + self.getName() + " ( " + ','.join(map(str, self._operands)) + ")"
     
     def __repr__(self):
-        tf_repr="pmodule: " + str(self._pmodule) + ", method: " + str(self._mname) + " ( "
-        tf_repr += str(self._operands)
+        tf_repr="transformation: " + self.getName() + " ( " + ','.join(map(str, self._operands))
         tf_repr += "), condition: " + str(self._condition) + ", function: " + str(self.transform)
         return tf_repr
         
@@ -520,21 +528,21 @@ class Correspondence():
         return self._msr["value"], self._msr["type"]
             
     def appendTransform(self, *, transformation=None, result_iri=None):
-        assert isinstance(transformation, Transformation), "Expected transformation of type {}, got {}".format(Transformation, type(transformation))
+        assert isinstance(transformation, Transformation), "Expected transformation of type {}, got {}".format(type(Transformation), type(transformation))
         transformation.makeTransform(resultIRI=result_iri)
         self._tfs.append(transformation)
 
     def getTransforms(self):
         return self._tfs
-    
-    def render(self):
-        '''
-        Produce a rendering of the Correspondence
-        '''
-        return self.getName() + ': '+ self.getEE1() +' --['+ self.getCorrRelation() +']--> '+ self.getEE2() 
+      
+    def __repr__(self):
+        repResult = self.getName() + ' (' + self._msr["value"] + '): '+ str(self.getEE1()) +' --['+ self.getCorrRelation() + ']--> '+ str(self.getEE2()) 
+        for tf in self.getTransforms():
+            repResult += "\n\t" + str(tf) 
+        return repResult
     
     def __str__(self):
-        return self.getName()
+        return self.__repr__()
     
     
     def determineDirection(self, qTree):
@@ -575,12 +583,17 @@ class Correspondence():
         print("Created context:")
         context.render()
 
-        # Prepare the target for the translation, i.e., turn it into a pf:iri_path form
-        if tgtEE.isEntity(): raise NotImplementedError("cannot translate into an entity *expression* (yet, please implement me), got {}".format(str(tgtEE)))
-        tgt_prefix, tgt_pf_expansion, tgt_iri_path = self.nsMgr.split(tgtEE.getIriRef())
-        tgt_prefix = tgt_prefix + ':'
+        # Prepare the target for the translation, i.e., 
+        # 1 - turn target into the form that is being used in the current query (prefix or iri; it should be iri)
+        # 2 - get the namespace of the tgt, so that the namespace definitions in the query can be translated
+
+        if not tgtEE.isAtomicEntity(): raise NotImplementedError("cannot translate into an entity *expression* (yet, please implement me), got {}".format(str(tgtEE)))
+        tgt = self.nsMgr.asIRI(tgtEE.getIriRef())
+        print('tgt: "{}"'.format(tgt) )
+
+        tgt_prefix, tgt_pf_expansion, tgt_iri_path = self.nsMgr.splitIri(tgtEE.getIriRef())
+        tgt_prefix += ':'
         tgt_pf_expansion = '<' + tgt_pf_expansion + '>'
-        tgt = tgt_prefix+tgt_iri_path
         
         # Translate ee1 into ee2. 
         # 1 - Loop over the Query Patterns of the query, and find the concept that it addresses. Establish which of the correspondences apply to that concept.
@@ -594,8 +607,8 @@ class Correspondence():
             for epf in qptAssoc.pfdNodes:
                 #TODO: translating a [PrefixDecl] for a prefix, is only valid if ALL iri's that are referenced
                 # by that namespace, are translated. This is not guaranteed a priori. Hence, the code below might break the validity of the query
-#                     print('Updating [PNAME_NS]: {}={} with {}={}'.format(epf,qptAssoc.pfdNodes[epf]['ns_iriref'],tgt_prefix,tgt_pf_expansion))
-                if str(qptAssoc.pfdNodes[epf]['node'].namespace)[1:-1] == qptAssoc.pfdNodes[epf]['ns_iriref'] and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == epf:
+                print("Updating [PNAME_NS]: {}={} with {}={}".format(epf,qptAssoc.pfdNodes[epf]['ns_iriref'],tgt_prefix,tgt_pf_expansion))
+                if str(qptAssoc.pfdNodes[epf]['node'].namespace) == qptAssoc.pfdNodes[epf]['ns_iriref'] and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == epf:
                     qptAssoc.pfdNodes[epf]['node'].prefix.updateWith(tgt_prefix)
                     qptAssoc.pfdNodes[epf]['node'].namespace.updateWith(tgt_pf_expansion)
                 elif str(qptAssoc.pfdNodes[epf]['node'].namespace)[1:-1] == tgt_pf_expansion and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == tgt_prefix:
@@ -609,14 +622,25 @@ class Correspondence():
         #     for which the ee1 indexes a list of variables. 
         #     Each variable is represented by a qmNode; each constraint by a valueLogic.
         
-        print ("looping over vars: {}".format(context.constraints))
+        print ("looping over vars: {}".format(list(context.constraints.keys())))
         for var in context.constraints:
             for vc in context.constraints[var]:
-                print("var: '{}', var constraint: '{}'".format(var, vc))
-                for vle in vc.getValueLogicExpressions():
-                    for tf in self.getTransforms():
-                        tf.transform(value_logic_expression = vle)
+                if vc == '': break
+                print("\tvar: '{}', var constraint: '{}'".format(var, vc))
+#                 for vle in vc.getValueLogicExpressions():
+                for tf in self.getTransforms():
+                    for operand in tf.getOperands():
+                        if srcEE.isAtomicEntity():
+                            if srcEE.getIriRef() == operand.getIriRef(): 
+                                result = tf.transform(var_constraints = vc)
+                                for vle in vc.getValueLogicExpressions():
+                                    vle['restriction'].updateWith(str(result))
+                        else: 
+    #                         if any(map(lambda op: op in tf.getOperands(), srcEE.getEntities())):
+    #                             tf.transform(var_constraints = vc)
+                            raise NotImplementedError("Can only translate atomic entities, not entity expressions (yet, please implement me)")
         
+        print("Translation result: ", end="")
         context.parsedQuery.render()
         return True
 

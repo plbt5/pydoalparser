@@ -193,67 +193,67 @@ class TestNSManager(unittest.TestCase):
     def testSplit(self):
         print('Testcase {}\n\ttesting {} ..'.format(self.__class__.__name__,inspect.currentframe().f_code.co_name), end="", flush=True)
         # Success scenarios
-        pf, prefix_expansion, iri_path = self.nsMgr.split('dc:path')
+        pf, prefix_expansion, iri_path = self.nsMgr.splitIri('dc:path')
         assert pf == 'dc' and prefix_expansion == 'http://purl.org/dc/elements/1.1/' and iri_path == 'path', "Got pf:{}, expansion:{}, path:{}".format(pf,prefix_expansion, iri_path)
-        pf, prefix_expansion, iri_path = self.nsMgr.split(':path')
+        pf, prefix_expansion, iri_path = self.nsMgr.splitIri(':path')
         assert pf == '' and prefix_expansion == 'http://knowledgeweb.semanticweb.org/heterogeneity/alignment#' and iri_path == 'path', "Got pf:{}, expansion:{}, path:{}".format(pf,prefix_expansion, iri_path)
-        pf, prefix_expansion, iri_path = self.nsMgr.split('{http://purl.org/dc/elements/1.1/}path')
+        pf, prefix_expansion, iri_path = self.nsMgr.splitIri('{http://purl.org/dc/elements/1.1/}path')
         assert pf == 'dc' and prefix_expansion == 'http://purl.org/dc/elements/1.1/' and iri_path == 'path', "Got pf:{}, expansion:{}, path:{}".format(pf,prefix_expansion, iri_path)
-        pf, prefix_expansion, iri_path = self.nsMgr.split('{}path')
+        pf, prefix_expansion, iri_path = self.nsMgr.splitIri('{}path')
         assert pf == '' and prefix_expansion == 'http://knowledgeweb.semanticweb.org/heterogeneity/alignment#' and iri_path == 'path', "Got pf:{}, expansion:{}, path:{}".format(pf,prefix_expansion, iri_path)
         # Fail scenarios
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('path:')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('path:')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a*a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a*a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a!a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a!a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a@a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a@a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a$a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a$a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a%a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a%a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a^a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a^a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a&a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a&a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a(a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a(a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a)a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a)a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a_a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a_a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a-a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a-a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a+a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a+a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a=a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a=a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a[a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a[a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a]a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a]a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a|a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a|a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a;a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a;a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a"a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a"a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split("a'a")
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri("a'a")
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a~a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a~a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a`a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a`a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a,a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a,a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a<a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a<a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a>a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a>a')
         with self.assertRaises(NotImplementedError): 
-            pf, prefix_expansion, iri_path = self.nsMgr.split('a?a')
+            pf, prefix_expansion, iri_path = self.nsMgr.splitIri('a?a')
         print(". done")
 
         

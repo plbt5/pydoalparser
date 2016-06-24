@@ -126,7 +126,7 @@ class NSManager():
         self.bindPrefixes(self.NS)  # Register the standard namespaces
         self.bindPrefixes(nsDict=nsDict)
 
-    def newPrefix(self, base_name='_mns'):
+    def newPrefix(self, base_name='mns_'):
         self._prefixCntr+=1
         return base_name + str(self._prefixCntr)
     
@@ -137,28 +137,28 @@ class NSManager():
             return self.nsmap[prefix]
         else: return prefix
         
-    def split(self, string):
+    def splitIri(self, iri_string):
         '''
         Split namespace notation into prefix, prefix_expansion, iri_path. 
         Currently only able to split from Clark's notation as input.
         Notations without '{}' part assumes to live in Base
         '''
         prefix = ''
-        if self.isClarks(string):
-            prefix_exp_string, iri_path = string[1:].split("}")
+        if self.isClarks(iri_string):
+            prefix_exp_string, iri_path = iri_string[1:].split("}")
             prefix_expansion = prefix_exp_string
             if prefix_expansion=='': prefix_expansion = self.base
             else: prefix = self.getPrefix(prefix_expansion)
-        elif self.isQName(string):
-            prefix, iri_path = string.split(':')
+        elif self.isQName(iri_string):
+            prefix, iri_path = iri_string.split(':')
             if prefix == '': 
                 prefix_expansion = self.base 
             else:
                 prefix_expansion = self.expand(prefix)
-        elif self.isIRI(string):
-            prefix, iri_path = self._splitIRI(string)
+        elif self.isIRI(iri_string):
+            prefix, iri_path = self._splitIRI(iri_string)
             prefix_expansion = self.expand(prefix)
-        else: raise NotImplementedError("Cannot split prefix_expansion {} (yet; please implement me)".format(string))
+        else: raise NotImplementedError("Cannot split prefix_expansion {} (yet; please implement me)".format(iri_string))
         return prefix, prefix_expansion, iri_path
     
     def getPrefix(self, pf_expansion):

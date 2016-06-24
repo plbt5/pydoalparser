@@ -439,7 +439,7 @@ class Alignment():
         operator = '<'+operator+'>'
         if not self.nsMgr.isIRI(operator): raise AttributeError("Expected iri value for attribute edoal:operator, got {}".format(operator))
         # Get the operator
-        pf, pf_expanded, functionName = self.nsMgr.split(operator)
+        pf, pf_expanded, functionName = self.nsMgr.splitIri(operator)
         # Turn the operator into a callable function
         if pf == 'op:' or pf_expanded in ['http://www.w3.org/2005/xpath-functions', 'http://www.w3.org/2001/XMLSchema']:
             # XPath function found
@@ -452,7 +452,7 @@ class Alignment():
             raise NotImplementedError("Java method functions ({}) not supported (yet, please implement me).".format(operator))
         elif pf == 'medtfn:' or pf_expanded == self.nsMgr.expand('medtfn'):
             # Python method in own library found, check if it exists
-            print("fn name: {}".format(functionName))
+            print("Adding function name: {}".format(functionName))
             fpath, fname = functionName.split('/')
             libModule = NSManager.LOCAL_BASE_PATH + 'transformations/' + fpath + '.py'
             assert os.path.isfile(libModule), "Cannot find transformation library module '{}' from current directory {}".format(libModule, os.getcwd())
@@ -468,7 +468,9 @@ class Alignment():
         args = operation_el.find(Alignment.EDOAL['ARGS'])
         assert args != None, "Element <{}> requires subelement <{}:{}> but none found.".format(operation_el.tag, self.nsMgr.asQName(Alignment.EDOAL['ARGS']))
         if args.get(NSManager.CLARKS_LABELS['RDFPARSTP']).lower() == Alignment.EDOAL['COLL']:
-            for value_el in args.iter():
+            
+            for value_el in args[0].iter():
+                print("Adding operand '{}'".format(value_el.tag))
                 if value_el.tag in [Alignment.EDOAL['APPLY'], Alignment.EDOAL['AGGR']]:
                     # Found another operation; resolve this by going recursive on this very same method, i.e., _parseOperation
                     #TODO: handle recursive operation definitions, i.e, operations that have operations as arguments
@@ -586,7 +588,7 @@ class Alignment():
             else: return None
         
         def getPath(self):
-            if self.hasPath: return self._path
+            if self.hasPath(): return self._path
             else: return None
             
         def __str__(self):
@@ -723,6 +725,18 @@ class Alignment():
 #     def __repr__(self):
 #         return self.getAbout() + str(type(self))
     
+    def __str__(self):
+        # for the time being, just return the raw representation
+        return self.__repr__()
+    
+    def __repr__(self):
+        result = "Alignment " + self.getAbout() + " aligns between:\n\t1: " + str(self.getSrcOnto()) + "\n\t2: " + str(self.getTgtOnto()) + "\n" + "with:\n" +\
+            "\tlevel: {}\n\ttype: {}\n\tcreator: {} ({})\n\tmethod: {}\n\tpurpose: {}\n".format(self.getLevel(), self.getType(), self.getCreator(), self.getDate(), self.getMethod(), self.getPurpose()) +\
+            "using namespaces:\n" + str(self.nsMgr) + "Correspondences:\n"
+        for corr in self.getCorrespondences():
+            result += str(corr)
+        return result
+        
 if __name__ == '__main__':
     print('running main')
 

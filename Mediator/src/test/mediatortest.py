@@ -45,17 +45,21 @@ class TestMediator(unittest.TestCase):
             Mediator(12.0) 
         
         # Success case
+        print("Input query: \n", self.query)
         m = Mediator(about='ts:myMediator', nsDict={'ts'   : 'http://ts.tno.nl/mediator/1.0/test#'})
         print("m: \n", m.getNSs())
         assert m.getNSs().nsConcat(m.getNSs().expand('ts'),'myMediator') == m.getName(), "Expected {}, got {}".format(m.getNSs().nsConcat('ts','myMediator'), m.getName())
         
         m.addAlignment(alignment_filename=self.fn)
         for align in m.alignments:
-            print("Alignment: ", m.alignments[align].getAbout())
+            print(str(m.alignments[align]))
             print("\tsource Ont: ", m.alignments[align].getSrcOnto())
             print("\ttarget Ont: ", m.alignments[align].getTgtOnto())
+
         
-        m.translate(self.query)
+        result = m.translate(self.query)
+        print("Translated query: \n")
+        result.render()
 
         
 if __name__ == "__main__":

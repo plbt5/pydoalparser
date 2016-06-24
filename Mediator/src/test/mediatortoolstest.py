@@ -394,30 +394,9 @@ class transformTest(unittest.TestCase):
             'fail': {
                 # 
                 'resources/valueSimpleFail1.xml': { 
-                    'FailEmpty1'   : AssertionError,        # Empty <entity> element
-                    'FailLiteral1' : AssertionError,        # Missing edoal:string attribute in <edoal:Literal\>
-                    'FailLiteral2' : AssertionError,        # Literal is always a single, empty element with its value in the attributes 
-                    'FailInstance1': AssertionError,        # Missing rdf:about attribute in <edoal:Instance\>
-                    'FailInstance2': AssertionError,        # Empty rdf:about attribute in element
-                    'FailInstance3': AssertionError,        # Incorrect attribute in element
-                    'FailInstance4': AssertionError,        # Not an empty element
-                    'FailProperty1': AssertionError,        # Empty about attribute, empty Lang attribute
-                    'FailProperty2': AssertionError,        # Missing about attribute, empty Lang attribute
-                    'FailProperty3': AssertionError,        # Empty about attribute, missing Lang attribute 
-                    'FailProperty4': AssertionError,        # Missing about attribute, missing Lang attribute
-                    'FailProperty5': AssertionError,        # Empty about attribute, valid Lang attribute
-                    'FailProperty6': AssertionError,        # Missing about attribute, valid Lang attribute
-                    'FailRelation1': AssertionError,        # Empty about attribute
-                    'FailRelation2': AssertionError,        # Missing about attribute 
                     'FailRelation3': AssertionError         # Valid attribute, invalid element (element is not empty) 
                     },
                 'resources/valuePathFail1.xml': { 
-                    'FailPathOfNonAttrExpr1'  : AssertionError,        # Instance path is illegal
-                    'FailPathOfNonAttrExpr2'  : AssertionError,        # Literal path is illegal
-                    'FailPathOfNonAttrExpr3'  : AssertionError,        # Class path is illegal 
-                    'FailPathWithNonAttrExpr1': AssertionError,        # Property Path containing Instance is illegal
-                    'FailPathWithNonAttrExpr2': AssertionError,        # Relation Path containing Literal is illegal
-                    'FailPathWithNonAttrExpr3': AssertionError,        # Relation Path containing Class is illegal
                     'FailComplexPathNotImpl'  : NotImplementedError    # Correct path, but too complex to be implemented yet
                     }
                 }
@@ -477,7 +456,7 @@ class transformTest(unittest.TestCase):
         assert t._operands == oneOperands, "Failed to register operands: expected {}, got {}".format(oneOperands, t._operands)
         print(".", end="")
         args = '32'
-        assert t.getOperationResult(args) == decimal.Decimal('0'), "Expected {} as transformation result, got {}".format(decimal.Decimal('0'), t.getOperationResult(value='32'))
+        assert t.getOperationResult(args) == decimal.Decimal('0'), "Expected {} as transformation result, got {}".format(decimal.Decimal('0'), t.getOperationResult(value=args))
         print(".", end="")
         
         # Second test: init an empty transformation, and add the elements

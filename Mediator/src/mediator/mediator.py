@@ -83,7 +83,7 @@ class Mediator(object):
             1: a sparql query (one of: SELECT, ASK, UPDATE, DESCRIBE)
             2: a sparql result set
             3: an RDF triple or RDF graph
-        returns: the translated data, in the same rendering as received
+        returns: the result of the translation, currently of type (parsertools.base.ParseStruct)
         
         As of this moment, only a SPARQL SELECT is supported
         '''
@@ -97,15 +97,17 @@ class Mediator(object):
         if rq == []:
             raise RuntimeError("Couldn't parse the following query:\n{}".format(data))
 #         self.nsMgr.bindPrefixesFrom(rq)
-        print(rq.dump())
+#         print(rq.dump())
         rq.expandIris()
-        print (rq.dump())
-        rq.render()
+#         print (rq.dump())
         for name, align in self.alignments.items():
             print("Translating according to Alignment '{}'".format(name))
             for corr in align.getCorrespondences():
                 print(corr)
                 print(corr.translate(rq))
+
+        # Return the resulting query
+        return (rq)
             
     def __len__(self):
         '''
