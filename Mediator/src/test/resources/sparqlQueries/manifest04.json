@@ -1,0 +1,37 @@
+{
+	"manifest": {
+		"mf:name": "manifest04" ,
+		"mf:file": "manifest04.json" ,
+		"rdfs:comment": "Mediate queries"
+	} ,
+	"mf:entries": [ "test_1" ],
+	"test_1": {
+		"rdf:type": 	"testType04" ,
+		"mf:SUT":		"translate" ,
+		"mf:name":		"testTranslate" ,
+		"rdfs:comment":	"translates atomic entities and their atomic individuals." ,
+		"mf:action": {
+			"mf:subject": { "alignment": { "value" : "../examples/alignTemp1A-1B.xml"}
+			},
+			"mf:data" : [ 
+				{	"id" : "1",
+					"sparql_rq":	{ "rdf:type" : "rq" , "value" : "filterPass2.rq" }, 
+					"EE_type":		{ "rdf:type" : "cls" , "value" : "CLASS" }
+				}, 
+				{	"id" : "2",
+					"sparql_rq":	{ "rdf:type" : "rq" , "value" : "filterPass2.rq" }, 
+					"EE_type":		{ "rdf:type" : "cls" , "value" : "PROP" }
+				},
+				{	"sparql_rq":	{ "rdf:type" : "rq" , "value" : "filterPass2.rq" }, 
+					"EE_type":		{ "rdf:type" : "cls" , "value" : "PROP" },
+					"id" : "3" 
+				}
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "mediator/translate01.rq" , "id" : "1" },
+			{ "rdf:type": "PASS", "value": "mediator/translate01.rq" , "id" : "2" },
+			{ "rdf:type": "FAIL", "value": "mediator/translate01.rq" , "id" : "3" }
+		] 
+	}
+}

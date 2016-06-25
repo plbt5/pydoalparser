@@ -1,7 +1,7 @@
 # test query
-PREFIX	ontoA:	<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A/>
-PREFIX	rdf:	<http://www.w3.org/1999/02/22-rdf-syntax-ns>
-PREFIX  xsd:	<http://www.w3.org/2001/XMLSchema>
+PREFIX	ontoA:	<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#>
+PREFIX	rdf:	<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX  xsd:	<http://www.w3.org/2001/XMLSchema#>
 
 SELECT ?p ?t
 WHERE {
