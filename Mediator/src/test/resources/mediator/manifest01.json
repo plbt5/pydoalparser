@@ -1,0 +1,37 @@
+{
+	"manifest": {
+		"mf:name": "manifest01" ,
+		"mf:file": "manifest01.json" ,
+		"rdfs:comment": "Mediate queries"
+	} ,
+	"mf:entries": [ "test_1" ],
+	"test_1": {
+		"rdf:type": 	"testType04" ,
+		"mf:SUT":		"translate" ,
+		"mf:name":		"testTranslate" ,
+		"rdfs:comment":	"Translate atomic entities, incl. their atomic individuals - (i) forward, (ii) backward, and (iii) not at all (no alignment specified for those iri's)." ,
+		"mf:action": {
+			"mf:subject": { "alignment": { "value" : "../examples/alignTemp1A-1B.xml"}
+			},
+			"mf:data" : [ 
+				{	"id" : "1",
+					"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translate01.rq" }, 
+					"source_onto":	{ "rdf:type" : "iri" , "value" : "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#>" }
+				}, 
+				{	"id" : "2",
+					"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translate02.rq" }, 
+					"source_onto":	{ "rdf:type" : "iri" , "value" : "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#>" }
+				},
+				{	"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translate03.rq" }, 
+					"source_onto":	{ "rdf:type" : "iri" , "value" : "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1C#>" },
+					"id" : "3" 
+				}
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "translate01result.rq" , "id" : "1" },
+			{ "rdf:type": "PASS", "value": "translate02result.rq" , "id" : "2" },
+			{ "rdf:type": "FAIL", "value": "UserWarning" , "id" : "3" }
+		] 
+	}
+}

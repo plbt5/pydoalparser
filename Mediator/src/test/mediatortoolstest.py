@@ -534,24 +534,21 @@ class transformTest(unittest.TestCase):
         debug = 3
         rule = 'TRANSFORM'
         if info or debug >= 1:
-            print()
-            print('=-'*7)
             print('\tTesting {} '.format(inspect.currentframe().f_code.co_name), end="")
-            print('=-'*7)
         for transform_tests in self.testCases[rule]:
             if info:
-                print('\ntesting', rule, 'with', len(transform_tests['pass']), 'pass case(s) and', len(transform_tests['fail']), 'fail case(s)')
+                print(', rule', rule, 'with', len(transform_tests['pass']), 'pass case(s) and', len(transform_tests['fail']), 'fail case(s)')
             if debug >= 3:
-                print('> pass cases:', transform_tests['pass'])
-                print('> fail cases:', transform_tests['fail'])
+                print('\t> pass cases:', transform_tests['pass'])
+                print('\t> fail cases:', transform_tests['fail'])
                 print()
             testCriteria = []
 
             # PASS: Execute the test for each defined correspondence file that is expected to pass
             # Setup specifics for this testCase
             for testCase, testCriteria in transform_tests['pass'].items():
-                if debug >= 1:
-                    print('PASS case {} has specified {} tests'.format(testCase,len(testCriteria)))
+                if info or debug >= 1:
+                    print('\tPASS case {} has specified {} tests'.format(testCase,len(testCriteria)))
                 
                 # Create a Alignment object only to have a valid Alignment object and create a valid nsMgr;
                 #    the test data is incorrect edoal, and this code below takes that into consideration
@@ -562,14 +559,14 @@ class transformTest(unittest.TestCase):
                 if testsEl == None or len(testsEl) == 0: raise TestException("No tests found, cannot perform tests")
                 tests = testsEl[0].findall(self.nsMgr.asClarks('t:test'))
                 if len(testCriteria) != len(tests): raise TestException('Test setup specifies {} tests, but {} tests found in test data ({})'.format(len(testCriteria), len(tests), testCase))
-                if debug >=3: print('Found {} tests in test data'.format(len(tests)))
+                if info or debug >= 1: print('\tFound {} tests in test data'.format(len(tests)))
                 for test in tests:
                     tname = test.get(NSManager.CLARKS_LABELS['RDFABOUT'])
                     # Check the test data is valid
                     if tname == None or tname == '': raise TestException('Testcase {}: Use of {} attribute in <test> element required to discern the various testCriteria'.format(testCase, NSManager.nsmap['RDFABOUT']))
                     edoal_entity = test.find(self.nsMgr.asClarks('edoal:entity1'))
                     if edoal_entity == None: raise TestException('Testcase {}: Test ({}) is required to contain an <entity1> element'.format(testCase, tname))
-                    if debug >=3: print('Testing test: {} ..'.format(tname), end="")
+                    if debug >=3: print('\tTesting test: {} '.format(tname), end="")
                     # Parse the operation from the test data
                     oprtnEl = edoal_entity.find(self.nsMgr.asClarks('edoal:Apply'))
                     if oprtnEl is None: oprtnEl = edoal_entity.find(self.nsMgr.asClarks('edoal:Aggregate'))
@@ -600,19 +597,21 @@ class transformTest(unittest.TestCase):
                     svn = testCriteria[tname]['sparql_var_name']
                     vcs = sparqlTools.Context.VarConstraints(sparql_tree=self.qt, sparql_var_name=svn, entity=propEntity)
                     # Do the test
-                    result = t.transform(var_constraints = vcs)
-                    print (result)
-                    assert result == testCriteria[tname]['result'], "Test '{}' failed: expected '{}', got '{}'".format(tname, testCriteria[tname]['result'], result)
-                    print(".", end="")
+                    eir = vcs.getEntity().getIriRef()
+                    for vle in vcs.getValueLogicExpressions():
+                        result = t.transform(entityIriRef=eir, value_logic_expr=vle)
+                        assert result == testCriteria[tname]['result'], "Test '{}' failed: expected '{}', got '{}'".format(tname, testCriteria[tname]['result'], result)
+                        if debug >=3: print(".", end="")
+                    if debug >=3: print(" done")
                     
             # Fail scenarios        
             for testCase, testCriteria in transform_tests['fail'].items():
-                if debug >= 1:
+                if debug >= 3:
                     print('FAIL case {} has specified {} tests'.format(testCase,len(testCriteria)))
                     assert False, "Implement fail tests for testTransform"
                     print(".", end="")
 
-                    print(". done")
+            if debug >=3: print(". done")
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

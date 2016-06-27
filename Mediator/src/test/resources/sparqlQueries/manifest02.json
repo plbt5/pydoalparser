@@ -9,10 +9,10 @@
 		"rdf:type": 	"testType01" ,
 		"mf:SUT":		"InitQPTRef" ,
 		"mf:name":		"testInit" ,
-		"rdfs:comment":	"Basic BGP pattern." ,
+		"rdfs:comment":	"Basic BGP pattern, obj=iri." ,
 		"mf:action": {
-			"mf:subject": { "sparql_iri":   { "rdf:type" : "iri" , "value" : "ontoA:Patient" }, 
-							"spo":			{ "rdf:type" : "string" , "value" : "object" }
+			"mf:subject": { "bgp_type":		{ "rdf:type" : "iri" , "value" : "ontoA:Patient" }, 
+							"bgp_value":	{ "rdf:type" : "string" , "value" : "object" }
 			},
 			"mf:data" : [
 				{ "rdf:type" : "sparle_query", "value" : "sparqlTools/QPTRefInit01.rq", "id" : "1" }
@@ -26,10 +26,10 @@
 		"rdf:type": 	"testType01" ,
 		"mf:SUT":		"InitQPTRef" ,
 		"mf:name":		"testInit" ,
-		"rdfs:comment":	"Basic BGP pattern." ,
+		"rdfs:comment":	"Basic BGP pattern, prop=iri." ,
 		"mf:action": {
-			"mf:subject": { "sparql_iri":   { "rdf:type" : "iri" , "value" : "rdf:type" }, 
-							"spo":			{ "rdf:type" : "string" , "value" : "property" }
+			"mf:subject": { "bgp_type":		{ "rdf:type" : "iri" , "value" : "rdf:type" }, 
+							"bgp_value":	{ "rdf:type" : "string" , "value" : "property" }
 			},
 			"mf:data" : [
 				{ "rdf:type" : "sparle_query", "value" : "sparqlTools/QPTRefInit01.rq", "id" : "1" }
@@ -43,10 +43,10 @@
 		"rdf:type": 	"testType01" ,
 		"mf:SUT":		"InitQPTRef" ,
 		"mf:name":		"testInit" ,
-		"rdfs:comment":	"Basic BGP pattern." ,
+		"rdfs:comment":	"Basic BGP pattern, subj=VAR1." ,
 		"mf:action": {
-			"mf:subject": { "sparql_iri":   { "rdf:type" : "VAR1" , "value" : "?p" }, 
-							"spo":			{ "rdf:type" : "string" , "value" : "subject" }
+			"mf:subject": { "bgp_type":		{ "rdf:type" : "VAR1" , "value" : "?p" }, 
+							"bgp_value":	{ "rdf:type" : "string" , "value" : "subject" }
 			},
 			"mf:data" : [
 				{ "rdf:type" : "sparle_query", "value" : "sparqlTools/QPTRefInit01.rq", "id" : "1" }

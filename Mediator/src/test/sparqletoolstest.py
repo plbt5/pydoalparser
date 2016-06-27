@@ -339,8 +339,8 @@ class TestQPTripleRef(unittest.TestCase):
         print('Testcase: "{}" about {}, has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], len(tests)))
         for test in tests:
             print('\tTesting system under test "{}" with {} subtests: {} ({}) ..'.format(self.testCases[test]["mf:SUT"], len(self.testCases[test]["mf:action"]["mf:data"]), self.testCases[test]["rdfs:comment"], self.testCases[test]["mf:name"]), end="")
-            # Get the test subject, i.e., the sparql_iri
-            sparql_iri = self.testCases[test]["mf:action"]["mf:subject"]["sparql_iri"]["value"]
+            # Get the test subject, i.e., the BGP element that this is about
+            bgp_type = self.testCases[test]["mf:action"]["mf:subject"]["bgp_type"]
             for testData in self.testCases[test]["mf:action"]["mf:data"]:
                 if testData["rdf:type"] != "sparle_query": raise TestException("Invalid test data, expected 'sparle_query', got '{}'".format(testData["rdf:type"]))
                 file = self.testdir + testData["value"]
@@ -349,10 +349,10 @@ class TestQPTripleRef(unittest.TestCase):
                     qry = f.read()
                 # Get the query node to test
                 parsedQry = parseQuery(qry)
-                print(parsedQry.dump())
-                print ("searching: {}".format(sparql_iri))
-                query_nodes = parsedQry.searchElements(label = None, element_type=SPARQLParser.iri, value=sparql_iri)
-                print("found: {}".format(len(query_nodes)))
+#                 print(parsedQry.dump())
+#                 print ("searching: {}".format(bgp_type))
+                query_nodes = parsedQry.searchElements(label = None, element_type=SPARQLParser.iri if bgp_type["rdf:type"]=="iri" else SPARQLParser.Var, value=bgp_type["value"])
+#                 print("found: {}".format(len(query_nodes)))
                 assert len(query_nodes) > 0
 
                 for testCriteria in [r for r in self.testCases[test]["mf:result"] if r["id"]==testData["id"]]:
@@ -374,7 +374,7 @@ class TestQPTripleRef(unittest.TestCase):
                         assert str(theNode.about) == resultsExp["results"]["bindings"][0]["o"]["value"]
                         assert type(theNode.about).__name__ == resultsExp["results"]["bindings"][0]["o"]["type"]
                         print(".", end="")
-                        theNode.setType(self.testCases[test]["mf:action"]["mf:subject"]["spo"]["value"])
+                        theNode.setType(self.testCases[test]["mf:action"]["mf:subject"]["bgp_value"]["value"])
                         assert theNode.type == resultsExp["results"]["bindings"][0]["t"]["value"]
                         assert len(theNode.associates) == int(resultsExp["results"]["bindings"][0]["l"]["value"])
                         assert theNode.associates[theNode.type] == atom

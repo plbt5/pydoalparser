@@ -229,12 +229,12 @@ class TestEDOALParser(unittest.TestCase):
                 'resources/valueSimplePass2.xml': {
                     'valueLiteralePass2A': {
                         'valueType': 'edoal:Apply',
-                        'value': 'CtoF',
+                        'value': 'transformations.unitconversion/CtoF',
                         'type': '<http://ns.inria.org/edoal/1.0/#apply>'
                         },
                     'valueLiteralePass2B': {
                         'valueType': 'edoal:Apply',
-                        'value': 'TempConvertor',
+                        'value': 'transformations.unitconversion/TempConvertor',
                         'type': '<http://ns.inria.org/edoal/1.0/#apply>'
                         }
                     },
@@ -381,12 +381,10 @@ class TestEDOALParser(unittest.TestCase):
             properfile = list(t['pass'].keys())[0]
             with self.assertRaises(AssertionError):
                 _ = Alignment(properfile, nsMgr=None)
-            # Test adding teh same alignment twice    
+            # Test adding the same alignment twice    
             pa = Alignment(properfile, nsMgr=self.nsMgr)
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
+            with self.assertRaises(AssertionError):
                 pa._addAlignment(fn=properfile, nsMgr=self.nsMgr)
-                assert issubclass(w[-1].category, UserWarning)
             if info:
                 print('='*20)
 
@@ -473,7 +471,7 @@ class TestEDOALParser(unittest.TestCase):
                                 assert type(e) == mappings['MissingCell'], 'TestNSManager should have raised exception {}; got {}'.format(mappings['MissingCell'], type(e))
                                 if debug >= 3: print(". done")
                         else:
-                            # iterate over all <Cell> elements (only 1?) and validate the failure of each cell
+                            # iterate over all <Cell> elements and validate the failure of each cell
                             for cell in cell_elements:
                                 name = cell.get(NSManager.CLARKS_LABELS['RDFABOUT'])
                                 assert isinstance(name,str) and name!='', "An edoal {} element requires an {} attribute. None found in this cell in {}".format(cell.tag, pa.nsMrg.CLARKS_LABELS['RDFABOUT'],f)
@@ -484,7 +482,36 @@ class TestEDOALParser(unittest.TestCase):
                                 except Exception as e: 
                                     assert type(e) == mappings[name], 'TestNSManager {} should have raised exception {}; got {}'.format(name, mappings[name], type(e))
                                     if debug >= 3: print(". done")
-                        
+        
+        w = 'resources/alignWarningPass1.xml'
+        print('testing warning case:', w)
+        pa = Alignment(fn=w, nsMgr=self.nsMgr)
+        assert pa != None and pa != [], "Test failure: The test requires an Edoal alignment. None found in testcase {}".format(w)
+        assert pa.getAbout() == "http://ds.tno.nl/ontoA-ontoB/DuplicateCells", "Test failure: other alignment read, got '{}'".format(pa.getAbout())
+        # Get each correspondence cell 
+        cell_elements = pa._align.findall(pa.nsMgr.asClarks('align:map') + '/' + pa.nsMgr.asClarks('align:Cell'))
+        assert len(cell_elements) == 3, "Test failure: test needs to have 3 <align:map> elements, got {}".format(len(cell_elements))
+        print('\ttesting DuplicateCells ', end="")
+        # Iterate over all <Cell>...</Cell> parts
+        nameMgr = []
+        pa._corrs = []
+        for cell in cell_elements:
+            # There are three correct <Cell>'s, but the second is a duplicate. 
+            # Assert that a duplicate warning is raised, and that the other two correspondences have been created.
+            print('.', end="")
+            name = cell.get(NSManager.CLARKS_LABELS['RDFABOUT'])
+            if name in nameMgr:
+                with self.assertWarns(UserWarning):
+                    corr = pa._parseCorrespondence(cell)
+            else:
+                nameMgr.append(name)
+                corr = pa._parseCorrespondence(cell)
+                pa.appendCorrespondence(corr)
+                assert corr.getName() == name
+        assert len(pa.getCorrespondences()) == 2, "Got {}".format(len(pa.getCorrespondences()))
+        print(' done')
+                    
+                    
     def testParseEdoalValue(self):
 #         from mediator.EDOALparser import Alignment
 
@@ -537,7 +564,7 @@ class TestEDOALParser(unittest.TestCase):
                     elif testCriteria[tname]['valueType'] in ['edoal:Property', 'edoal:Relation']:
                         assert testCriteria[tname]['value'] == edoalValue.getAttrExpression(),'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, testCriteria[tname]['value'], edoalValue.getAttrExpression())
                     elif testCriteria[tname]['valueType'] in ['edoal:Apply', 'edoal:Aggregate']:
-                        assert testCriteria[tname]['value'] == str(edoalValue.getOperator()),'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, testCriteria[tname]['value'], edoalValue.getOperator())
+                        assert testCriteria[tname]['value'] == edoalValue.getOperator().getName(),'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, testCriteria[tname]['value'], edoalValue.getOperator().getName())
                     elif testCriteria[tname]['valueType'] == 'edoal:compose':
                         assert testCriteria[tname]['type'] == edoalValue.getEntityType(),'Testcase {}, test {}: expected {} but found {}'.format(testCase, tname, testCriteria[tname]['type'], edoalValue.getEntityType())
                         if edoalValue.hasPath():

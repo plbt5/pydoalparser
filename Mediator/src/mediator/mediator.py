@@ -8,8 +8,9 @@ Created on 26 feb. 2016
 from parsertools.parsers.sparqlparser import parseQuery
 from utilities import namespaces
 from mediator import EDOALparser
-import os.path
 from builtins import str
+import warnings
+import os.path
 
 class Mediator(object):
     '''
@@ -61,28 +62,38 @@ class Mediator(object):
         for key in nsDict.keys():
             assert not key in mediatorNSs.keys()
         mediatorNSs.update(nsDict)
-        print("mediator ns:", mediatorNSs)
+#         print("Mediator init(): adding namespace:", mediatorNSs)
         self.nsMgr = namespaces.NSManager(nsDict=mediatorNSs, base='http://knowledgeweb.semanticweb.org/heterogeneity/alignment#')
-        if self.nsMgr == None: raise RuntimeError("Fatal: Couldn't create a namespace manager")
+        if self.nsMgr == None: raise RuntimeError("Mediator.init(): Fatal: Couldn't create a namespace manager")
         self.about = self.nsMgr.asIRI(about)
         self.alignments = {}
+        self.parsedAlignFiles = []
         
     def addAlignment(self, alignment_filename=''):
-        assert alignment_filename != '', "Name of file containing alignment expected"
-        assert os.path.isfile(alignment_filename), "Cannot find file {}".format(alignment_filename)
-        alignment = EDOALparser.Alignment(fn = alignment_filename, nsMgr=self.nsMgr)
-        self.alignments[alignment.getAbout()] = alignment
+        assert alignment_filename != '', "Mediator.addAlignment(): Name of file containing alignment expected"
+        assert os.path.isfile(alignment_filename), "Mediator.addAlignment(): Cannot find file {}".format(alignment_filename)
+        if not alignment_filename in self.parsedAlignFiles :
+            # First, create the alignment that will be added to this mediator
+            alignment = EDOALparser.Alignment(fn = alignment_filename, nsMgr=self.nsMgr)
+            assert not alignment.getAbout() in self.alignments, "Mediator.addAlignment(): already added alignment '{}' to mediator '{}'".format(alignment.getAbout(), self.about)
+            # Second, parse and create the correspondences that are part of this alignment, and add them to the alignment
+            assert len(alignment.getCorrespondences()) > 0, "Mediator.addAlignment(): cannot find correspondences in alignment '{}' of mediator '{}'".format(alignment.getAbout(), self.about)
+            # Third and finally, add the alignment (including the correspondences) to the mediator, and flag that the file has been parsed
+            self.alignments[alignment.getAbout()] = alignment
+            self.parsedAlignFiles.append(alignment_filename)
+        else: warnings.warn("Mediator.addAlignment(): alignment file '{}' already processed by mediator '{}', skipping ...".format(alignment_filename, self.about), category = UserWarning)
         
     def getNSs(self):
         return(self.nsMgr)
             
-    def translate(self,data):
+    def translate(self, *, data=None, source_onto_ref=None):
         '''
         Translate the data according to the EDOAL alignment cells that are stored in correspondence objects
         - data (sparql query as string): the data to be translated; this data can represent one out of the following
             1: a sparql query (one of: SELECT, ASK, UPDATE, DESCRIBE)
             2: a sparql result set
             3: an RDF triple or RDF graph
+        - source: reference to the ontology that the data originates from, in order to indicate the direction of the translation
         returns: the result of the translation, currently of type (parsertools.base.ParseStruct)
         
         As of this moment, only a SPARQL SELECT is supported
@@ -93,19 +104,35 @@ class Mediator(object):
         # 3 - translate the query, by changing (in place) the iri's and data values as 
         #     specified in the correspondences
         assert data != None and isinstance(data, str) and data != '' 
+
         rq = parseQuery(data)
         if rq == []:
-            raise RuntimeError("Couldn't parse the following query:\n{}".format(data))
+            raise RuntimeError("Mediator.translate(): Couldn't parse query:\n{}".format(data))
 #         self.nsMgr.bindPrefixesFrom(rq)
 #         print(rq.dump())
         rq.expandIris()
 #         print (rq.dump())
-        for name, align in self.alignments.items():
-            print("Translating according to Alignment '{}'".format(name))
-            for corr in align.getCorrespondences():
-                print(corr)
-                print(corr.translate(rq))
 
+        # Translate the data by applying all alignments
+        for name, align in self.alignments.items():
+            # 1 - Determine what is the source and what the target entity expression for this data, i.e., determine direction for translation 
+            if source_onto_ref == str(align.getSrcOnto()):
+                for corr in align.getCorrespondences():
+                    srcEE = corr.getEE1()
+                    tgtEE = corr.getEE2()
+                    print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+                    _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
+                    #TODO: use result of the translation in the semantic protocol
+            elif source_onto_ref == str(align.getTgtOnto()):
+                for corr in align.getCorrespondences():
+                    srcEE = corr.getEE2()
+                    tgtEE = corr.getEE1()
+                    print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+                    _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
+                    #TODO: use result of the translation in the semantic protocol
+            else:
+                warnings.warn("Mediator.translate(): Alignment '{}' cannot translate data that originate from ontology {}".format(name, source_onto_ref), category=UserWarning)
+        
         # Return the resulting query
         return (rq)
             

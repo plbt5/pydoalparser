@@ -561,31 +561,31 @@ class Context():
         self.nsMgr = None        # (namespaces.NSManager): the current nsMgr that can resolve any namespace issues of this mediator 
         
 #         assert isinstance(entity_expression, Mediator.EntityExpression) and isinstance(sparqlTree, ParseStruct)
-        assert isinstance(sparqlTree, ParseStruct) and isinstance(nsMgr, NSManager), "Parsed sparql tree and namespace mgr required"
-        assert isinstance(entity_expression, mediatorTools.EntityExpression), "Cannot create context without subject entity expression"
+        assert isinstance(sparqlTree, ParseStruct) and isinstance(nsMgr, NSManager), "Context.VarConstraints.__init__(): Parsed sparql tree and namespace mgr required"
+        assert isinstance(entity_expression, mediatorTools.EntityExpression), "Context.VarConstraints.__init__(): Cannot create context without subject entity expression"
         
-        if not entity_expression.isAtomicEntity(): raise NotImplementedError("Cannot process entity expressions yet, only simple entities. Got {}".format(entity_expression.getType()))
+        if not entity_expression.isAtomicEntity(): raise NotImplementedError("Context.VarConstraints.__init__(): Cannot process entity expressions yet, only simple entities. Got {}".format(entity_expression.getType()))
 
         self.nsMgr = nsMgr
-        print("entity expr: {}".format(entity_expression))
+#         print("Context.VarConstraints.__init__(): entity expr: {}".format(entity_expression))
         self.entity_expr = entity_expression
         #TODO: process other sparqlData than sparql query, i.e., rdf triples or graph, and sparql result sets
         self.parsedQuery = sparqlTree
         if self.parsedQuery == []:
-            raise RuntimeError("Cannot parse the query sparqlData")
+            raise RuntimeError("Context.VarConstraints.__init__(): Cannot parse the query sparqlData")
         
         eePf, eeIri, eeTag = self.nsMgr.splitIri(self.entity_expr.getIriRef())
         src_qname = eePf + ':' + eeTag
-        print("eeIri: {}".format(eeIri))
-        print("eePf : {}".format(eePf))
-        print("eeTag: {}".format(eeTag))
-        print("eeOrg: {}".format(self.entity_expr.getIriRef()))
-        print("entity type {}".format(entity_type))
+#         print("Context.VarConstraints.__init__(): eeIri: {}".format(eeIri))
+#         print("Context.VarConstraints.__init__(): eePf : {}".format(eePf))
+#         print("Context.VarConstraints.__init__(): eeTag: {}".format(eeTag))
+#         print("Context.VarConstraints.__init__(): eeOrg: {}".format(self.entity_expr.getIriRef()))
+#         print("Context.VarConstraints.__init__(): entity type {}".format(entity_type))
         
         # 1: Find the qptRefs for which the context is to be build, matching the Entity1 Name and its Type
         srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value=self.entity_expr.getIriRef())
         if srcNodes == []: 
-            raise RuntimeError("Cannot find element '{}' of type '{}' in sparqlData".format(self.entity_expr.getIriRef(), entity_type))
+            raise RuntimeError("Context.VarConstraints.__init__(): Cannot find element '{}' of type '{}' in sparqlData".format(self.entity_expr.getIriRef(), entity_type))
         
         # 2: Build the context
         self.qptAssocs = []         # List of (QPTripleRef)s that address the edoal entity_iri.
@@ -598,12 +598,12 @@ class Context():
         # 2.1.2: For each node, find the qptAssocs
         for qrySrcNode in srcNodes:
             # Find and store the QueryPatternTripleAssociation of the main Node
-            print("Building context for {}".format(qrySrcNode))
-            print('='*30)
+#             print("Context.VarConstraints.__init__(): Building context for {}".format(qrySrcNode))
+#             print('='*30)
             qpt = self.QueryPatternTripleAssociation(entity_expression=self.entity_expr, sparql_tree=self.parsedQuery, nsMgr=self.nsMgr)
             qpt.addQPTRef(qrySrcNode)
             self.qptAssocs.append(qpt)
-            print("QP triple(s) determined: \n\t", self.qptAssocs.__repr__())
+#             print("Context.VarConstraints.__init__(): QP triple(s) determined: \n\t", self.qptAssocs.__repr__())
 #             print("Vars that are bound by these: ")
 #             for n in qpt.qptRefs:
 #                 for b in n.binds:
@@ -619,7 +619,7 @@ class Context():
         #TODO: Assumed one [GraphPatternNotTriples] (hence, list(...)[0])  
         filterTop = self.parsedQuery.searchElements(element_type=SPARQLParser.GraphPatternNotTriples)
         if filterTop == []:
-            raise RuntimeError("Cannot find Query Modifiers clause (Filter)")
+            raise RuntimeError("Context.VarConstraints.__init__(): Cannot find Query Modifiers clause (Filter)")
 #             print('Top for QM part of tree:')
 #             print(filterTop.dump())
         # 2.2.2 - for each bound variable in the qp, collect the ValueLogics that represent its constraint
@@ -628,7 +628,7 @@ class Context():
                 for var in qpNode.binds:
                     # Find the ValueLogicExpression that addresses this variable
                     self.constraints[str(var)] = []
-                    print("Elaborating on var <{}>".format(str(var)))
+#                     print("Context.VarConstraints.__init__(): Elaborating on var <{}>".format(str(var)))
 #                     print('='*30)
                     # 3 - determine and store its value logics
                     # Cycle over every FILTER subtree
@@ -653,6 +653,6 @@ class Context():
             
     def getSparqlElements(self):
         result = []
-        print("NOT IMPLEMENTED: Searching for sparql elements that are associated with <{}>".format(self.entity_expr))
+        print("Context.VarConstraints.getSparqlElements(): NOT IMPLEMENTED: Searching for sparql elements that are associated with <{}>".format(self.entity_expr))
         return(result)
   

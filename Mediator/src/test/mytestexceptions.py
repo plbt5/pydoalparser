@@ -13,3 +13,19 @@ class TestException(Exception):
     def __init__(self, message):
         # Call the base class constructor with the parameters it needs
         super(TestException, self).__init__(message)
+
+import warnings
+class WarningTestMixin(object):
+    'A test which checks if the specified warning was raised'
+
+    def assertWarns(self, warning, callable, *args, **kwds):
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.simplefilter('always')
+
+            result = callable(*args, **kwds)
+
+            self.assertTrue(any(item.category == warning for item in warning_list))
+            
+AS_EXCEPTION_TYPE = {
+    "UserWarning": UserWarning
+}
