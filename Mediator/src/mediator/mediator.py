@@ -100,34 +100,43 @@ class Mediator(object):
         '''
         # Process:
         # 1 - parse sparlq data
-        # 2 - add namespaces that are used in the sparql query to the namespaceManager
-        # 3 - translate the query, by changing (in place) the iri's and data values as 
-        #     specified in the correspondences
+        # 2 - Run over all alignments and check its src and tgt ontology iri's to match with the source ontology the data originates from
+        #     (this also establishes the translation direction)
+        # 3 - On a match: loop over all correspondences in an alignment in order to ...
+        # 4 - ... let the correspondence determine if and how to translate the data
+        #TODO: optimise the matching between on step 4
+
         assert data != None and isinstance(data, str) and data != '' 
 
+        # 1a - Parse the sparql data into graph (tree)
         rq = parseQuery(data)
         if rq == []:
             raise RuntimeError("Mediator.translate(): Couldn't parse query:\n{}".format(data))
 #         self.nsMgr.bindPrefixesFrom(rq)
 #         print(rq.dump())
+        # 1b - Base the comparison between querygraph and aligment on full iri's: Thus expand the iri's in the querygraph. 
         rq.expandIris()
 #         print (rq.dump())
 
-        # Translate the data by applying all alignments
+        # 2a - Loop over all alignments
         for name, align in self.alignments.items():
-            # 1 - Determine what is the source and what the target entity expression for this data, i.e., determine direction for translation 
+            # 2b - Determine what is the source and what the target entity expression for this data, i.e., determine direction for translation 
             if source_onto_ref == str(align.getSrcOnto()):
+                # 3 - This alignment addresses this data for a forward translation, hence loop over all correspondences
                 for corr in align.getCorrespondences():
                     srcEE = corr.getEE1()
                     tgtEE = corr.getEE2()
-                    print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+#                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+                    # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
                     _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
                     #TODO: use result of the translation in the semantic protocol
             elif source_onto_ref == str(align.getTgtOnto()):
+                # 3 - This alignment addresses this data for a backwards translation, hence loop over all correspondences
                 for corr in align.getCorrespondences():
                     srcEE = corr.getEE2()
                     tgtEE = corr.getEE1()
-                    print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+#                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+                    # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
                     _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
                     #TODO: use result of the translation in the semantic protocol
             else:
