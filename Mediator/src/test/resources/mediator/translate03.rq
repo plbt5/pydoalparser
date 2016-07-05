@@ -1,0 +1,13 @@
+# test query
+PREFIX	ontoC:	<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1C#>
+PREFIX	rdf:	<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX  xsd:	<http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?p ?t
+WHERE {
+    ?p rdf:type ontoC:nombreDelPaciente .
+	?p ontoC:tieneTemperaturaInK ?t .
+	FILTER (?t > 310.15 )
+}
+
+
