@@ -551,6 +551,7 @@ class Correspondence():
         
         As of this moment, only data of type 1 is supported, and even then only SELECT
         '''
+        #TODO: Refactor - as opposed to feed a correspondence data to translate, feed each distinct data format (e.g., sparql, rdf) a correspondence towards its translation. 
         assert parsed_data != [] and isinstance(parsed_data,ParseStruct), "Correspondence.translate(): query string expected, got '{}'".format(str(parsed_data))
         assert srcEE and isinstance(srcEE, EntityExpression), "Correspondence.translate(): EntityExpression expected for source, got {}".format(type(srcEE))
         assert tgtEE and isinstance(tgtEE, EntityExpression), "Correspondence.translate(): EntityExpression expected for target, got {}".format(type(tgtEE))
@@ -568,7 +569,7 @@ class Correspondence():
 
         if not tgtEE.isAtomicEntity(): raise NotImplementedError("translate(): cannot translate into an entity *expression* (yet, please implement me), got {}".format(str(tgtEE)))
         tgt = self.nsMgr.asIRI(tgtEE.getIriRef())
-        print('Correspondence.translate(): Updating {} to {}'.format(srcEE.getIriRef(), tgt) )
+#         print('Correspondence.translate(): Updating {} to {}'.format(srcEE.getIriRef(), tgt) )
 
         tgt_prefix, tgt_pf_expansion, tgt_iri_path = self.nsMgr.splitIri(tgtEE.getIriRef())
         tgt_prefix += ':'

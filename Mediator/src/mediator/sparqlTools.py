@@ -655,4 +655,16 @@ class Context():
         result = []
         print("Context.VarConstraints.getSparqlElements(): NOT IMPLEMENTED: Searching for sparql elements that are associated with <{}>".format(self.entity_expr))
         return(result)
-  
+
+
+class sparqlQueryResultSet():
+    '''
+    This class represents a sparql query result set, i.e., as specified by https://www.w3.org/TR/sparql11-overview/#sparql11-results
+    In principle all four different formats should be supported (XML, JSON, CSV and TSV). Currently, only a JSON parser is supported.
+    '''
+    def __init__(self, result_set=None):
+        '''
+        Create a sparql result set object from the input string.
+        * input: a string that represents a sparql result set. Currently only a JSON-formatted string is supported.
+        '''
+        pass

@@ -107,6 +107,10 @@ class Mediator(object):
         #TODO: optimise the matching between on step 4
 
         assert data != None and isinstance(data, str) and data != '' 
+        assert source_onto_ref, "Indication of translation direction is required by means of specifying the ontology iri from which the data originates"
+        # All iri's are represented with embraced '< >' pair. Make sure that this is the case
+        if source_onto_ref[0] != '<' and source_onto_ref[-1] != '>':
+            source_onto_ref = '<' + source_onto_ref + '>'
 
         # 1a - Parse the sparql data into graph (tree)
         rq = parseQuery(data)
@@ -120,7 +124,8 @@ class Mediator(object):
 
         # 2a - Loop over all alignments
         for name, align in self.alignments.items():
-            # 2b - Determine what is the source and what the target entity expression for this data, i.e., determine direction for translation 
+            # 2b - Determine what is the source and what the target entity expression for this data, i.e., determine direction for translation
+#             print("Direction specified by source '{}'\nAlignment specifies '{}'".format(source_onto_ref, str(align.getSrcOnto()))) 
             if source_onto_ref == str(align.getSrcOnto()):
                 # 3 - This alignment addresses this data for a forward translation, hence loop over all correspondences
                 for corr in align.getCorrespondences():
@@ -142,8 +147,8 @@ class Mediator(object):
             else:
                 warnings.warn("Mediator.translate(): Alignment '{}' cannot translate data that originate from ontology {}".format(name, source_onto_ref), category=UserWarning)
         
-        # Return the resulting query
-        return (rq)
+        # Return the resulting query, rendered into valid sparql format
+        return (str(rq))
             
     def __len__(self):
         '''

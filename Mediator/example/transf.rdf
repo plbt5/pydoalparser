@@ -14,6 +14,7 @@
 
 <!-- This example does not make sense as an alignment,
 it only illustrates transformations 
+SOURCED FROM: AlignmentAPI.zip
 -->
 <!-- In this case the default namespace is edoal -->
 <rdf:RDF xmlns="http://ns.inria.org/edoal/1.0/#" 
