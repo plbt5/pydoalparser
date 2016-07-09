@@ -35,6 +35,10 @@ from builtins import str
 from distutils.dist import warnings
 from utilities.namespaces import NSManager        
 from mediator import mediatorTools
+import json
+from json.decoder import JSONDecodeError
+from xml.etree import ElementTree
+from xml.etree.ElementTree import ParseError
 
     
 class Context():
@@ -657,7 +661,7 @@ class Context():
         return(result)
 
 
-class sparqlQueryResultSet():
+class sparqlQueryResultSet(): 
     '''
     This class represents a sparql query result set, i.e., as specified by https://www.w3.org/TR/sparql11-overview/#sparql11-results
     In principle all four different formats should be supported (XML, JSON, CSV and TSV). Currently, only a JSON parser is supported.
@@ -667,4 +671,42 @@ class sparqlQueryResultSet():
         Create a sparql result set object from the input string.
         * input: a string that represents a sparql result set. Currently only a JSON-formatted string is supported.
         '''
-        pass
+        if isinstance(result_set, dict):
+            assert "head" in result_set, "sparqlTools.sparqlQueryResultSet(): Cannot parse unknown dictionary structure, got {}".format(result_set)
+            # Assume dictionary is structured according to query-result-set specification
+            self.qResult = result_set
+        elif isinstance(result_set, str):
+            # Establish format by trying XML and JSON parser
+            try:
+                root = ElementTree.fromstring(result_set)
+                #TODO: Parse XML-format
+                raise NotImplementedError("sparqlTools.sparqlQueryResultSet(): Cannot parse an XML-formatted result string (yet, please implement  me)")
+            except ParseError:
+                try:
+                    self.qResult = json.loads(result_set)
+                except JSONDecodeError as err:
+                    raise NotImplementedError("sparqlTools.sparqlQueryResultSet(): Cannot parse query result set formatted as CSV or TSV (yet, please implement me")
+        else:
+            raise NotImplementedError("sparqlTools.sparqlQueryResultSet(): Cannot parse query result set formatted other than string or dict, got {}".format(type(result_set)))
+        # Parse the (json) dict
+        assert "head" in self.qResult, "sparqlTools.sparqlQueryResultSet(): label 'head' expected in sparql result set, none found"
+#         print("sparqlQueryResultSet.init(): head reads '{}' ({})".format(self.qResult["head"], len(self.qResult["head"])))
+        if len(self.qResult["head"]) > 0:
+            # Result set is response from SELECT query
+            self.qType = 'SELECT'
+            self.vars = self.qResult["head"]["vars"]
+            self.bindings = self.qResult["results"]["bindings"]
+        else:
+            # Result set is response from ASK query
+            self.qType = 'ASK'
+            self.boolean = self.qResult["boolean"]
+
+    def __repr__(self):
+        if self.qType == 'ASK':
+            return str(self.qType, self.boolean)
+        elif self.qType == 'SELECT':
+            return str(self.qType, self.vars, self.bindings)
+        else:
+            # Unknown type, hence return what is known...
+            return str(self.qType, self.qResult)
+        
