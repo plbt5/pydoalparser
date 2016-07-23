@@ -30,7 +30,7 @@ This module provides tools to relate the various elements of a query to each oth
 
 from parsertools.base import ParseStruct
 from parsertools.parsers.sparqlparser import SPARQLParser
-
+import warnings
 from builtins import str
 from distutils.dist import warnings
 from utilities.namespaces import NSManager  
@@ -45,11 +45,14 @@ from xml.etree.ElementTree import ParseError
 def determineBGPPosition(node=None):
     '''
     Identify the BGP position of a ParseStruct Node by searching the ancestor tree.
-    return: (String, canonical as Context.localLabels): the Basic Graph Pattern position of this node: <S|P|O>
+    returns: (String, canonical as Context.localLabels): the Basic Graph Pattern position of this node: <S|P|O>,
+             or None when the position cannot be determined, e.g., when the node is not part of a query pattern triple.
     '''
+    # Since we go upwards, we first need to skip all non-branching intermediate nodes. Then, all branching nodes are processed
+    # from lower to higher. 
     assert isinstance(node, ParseStruct), "determineBGPPosition: illegal input data, <class ParseStruct> expected, got {}".format(type(node))
     bgpPos = None
-    ancestors = node.getAncestors()
+    ancestors = [node] + node.getAncestors()
     for ancestor in ancestors:
         # The stop criterion for this loop is having found the BGP position that this QPTriplenode is about.
         nType = type(ancestor).__name__
@@ -59,10 +62,10 @@ def determineBGPPosition(node=None):
             # eventually, this will be the top node of this branch
             topOfBranch = ancestor
             continue
-        elif nType == 'ObjectListPath':
+        elif nType in ['ObjectList', 'ObjectListPath']:
             # This Node represents an object
             bgpPos = "object"
-        elif nType == 'VerbPath':
+        elif nType in ['VerbSimple', 'VerbPath']:
             # This Node represents a property
             bgpPos = "property"
         elif nType == 'TriplesSameSubjectPath':
@@ -72,9 +75,9 @@ def determineBGPPosition(node=None):
         elif nType == 'PropertyListPathNotEmpty':
             # We are in a PLPNE leg, WITHOUT bgpPos assigned already hence determine
             # whether the self node represents either a property or an object
-            if type(topOfBranch).__name__ == 'ObjectListPath':
+            if type(topOfBranch).__name__ in ['ObjectListPath', 'ObjectList']:
                 bgpPos='object'
-            elif type(topOfBranch).__name__ == 'VerbPath':
+            elif type(topOfBranch).__name__ in ['VerbPath', 'VerbSimple']:
                 # Now in the branch leading to itself 
                 bgpPos="property"
             else: raise RuntimeError("determineBGPPosition: Unexpectedly found [{}] ([{}]) as child of [{}] ([{}]). Please file BUG report.".format(topOfBranch, type(topOfBranch).__name__,ancestor,type(ancestor).__name__))
@@ -83,18 +86,20 @@ def determineBGPPosition(node=None):
         else: RuntimeError("determineBGPPosition: Unexpectedly found <{}> as ancestor to <{}>. This might be valid, but requires further study. Please file BUG report.".format(nType, ancestor))
         break
     if not bgpPos:
-        raise RuntimeError("determineBGPPosition: Couldn't determine BGP position for '{}'. Please file BUG report.".format(node))
+        warnings.warn("determineBGPPosition: Couldn't determine BGP position for '{}'. Please file BUG report.".format(node))
+        return None
     return Context.localLabels[bgpPos]
 
 
     
 class Context():
     '''
-    Represents the sparql context of (source) <entity>s (a single entity, NOT an entity *expression*) that is mentioned in the EDOAL correspondence.
+    Represents the sparql context of a single (source) EntityExpression that is mentioned in the EDOAL correspondence.
     It builds the relationship between:
-    1 - the source <entity> and the URIRef element(s) in the Query Pattern of the sparql tree, and 
-    2 - and the restrictions that yield in the Query Modifiers of the sparql tree.
-    * 
+    1 - the source <EntityExpression> this is about;
+    2 - the <entity>'s that are involved in the EntityExpression, and for *each* of these 
+        1 - the triple(s) in the Query Pattern of the sparql tree that mention the EntityIri, and 
+        2 - the restrictions that yield in the Query Modifiers of the sparql tree for this entity.
     '''
     
     mns = 'http://ts.tno.nl/mediator/1.0/'
@@ -119,7 +124,33 @@ class Context():
         The BGP patterns are part of the WHERE clause, while the value logic patterns are part of the FILTER clause.
         '''
         
+        def __init__(self, *, entity, sparql_tree, nsMgr):
+            self.represents = '' # (Entity) the EDOAL entity_iri (Class, Property, Relation, Instance) name;
+                                 # This is in fact unnecessary because this is already stored in the higher Context class
+            self.qptRefs = []    # List of (QPTripleRef)s, i.e., Query Pattern nodes that address the Entity
+            self.pfdNodes = {}   # Temporary namespace dictionary. Dict of (ParseStruct)s indexed by prefix : the PrefixDecl nodes that this entity_iri relates to
+            self.sparqlTree = '' # The sparql tree that this class uses to relate to
             
+            assert isinstance(entity, mediatorTools._Entity)
+            assert isinstance(nsMgr, NSManager)
+            assert isinstance(sparql_tree, ParseStruct)
+            # Now find the atom of the main Node, i.e., what this is all about, and store it
+            if entity == None or sparql_tree == None:
+                raise RuntimeError("Require parsed sparql tree and sparql node, and edoal entity_iri expression.")
+#             print("context: entity expression {}".format(entity))
+            self.represents = entity
+            self.sparqlTree = sparql_tree
+            # Now find the [PrefixDecl] nodes
+            #TODO: Remove this after refactoring to locally valid namespace expansion etc. in SPARQLStruct
+            prefixDecls = sparql_tree.searchElements(element_type=SPARQLParser.PrefixDecl)
+            _, src_iriref, _ = nsMgr.splitIri(entity.getIriRef())
+            for prefixDecl in prefixDecls:
+                ns_prefix, ns_iriref = str(prefixDecl.prefix)[:-1], str(prefixDecl.namespace)[1:-1]
+                if ns_iriref == src_iriref: 
+                    self.pfdNodes[ns_prefix] = {}
+                    self.pfdNodes[ns_prefix]['ns_iriref'] = '<' + ns_iriref + '>'
+                    self.pfdNodes[ns_prefix]['node'] = prefixDecl
+                    
         class QPTripleRef():
             '''
             A QPTripleRef represents a single query pattern, i.e., an {s,p,o} BGP triple, which is referred to by an entity that is mentioned in a Correspondence.  
@@ -129,31 +160,43 @@ class Context():
             #TODO: Extend this structure to enable the inclusion of more than one node as vehicle for an edoal entity. The current implementation only allows a triple to contain one edoal entity, which is an unnecessary limitation
             def __init__(self, about=None, bgp_type=None):
                 '''
-                Input: a node in the parsed sparql (ParseInfo) that is either a node or can be traced to a node, representing the entity element of interest.
+                Initialize a triple object. 
+                Input: None.
                 '''
-                self.about = None      # (ParseInfo): the atomic node in the sparql tree that is referred to by the Edoal Entity Element
-                self.type = ''       # (String, canonical as Context.localLabels): the Basic Graph Pattern position of this node: <S|P|O>
-                self.binds = []      # (List of String)(optional): a list of names of two, one or zero (when BGPType=p) or one or zero (=s or =o) Vars that are bound by this node: <VAR1 | VAR2 | PNAME_LN>
+                self.referred = None      # (ParseInfo): the atomic node in the sparql tree that is referred to by the Edoal Entity Element.
+                self.type = ''       # (String, canonical as Context.localLabels): the Basic Graph Pattern position that the entity is about: <S|P|O>.
+                self.binds = set()   # (List of String)(optional): a list of names of the Vars that are bound in this triple. 
                 self.associates = {} # (Dict{S|P|O, ParseInfo}): the annotated (s,p,o) triple, each of which refers to a QPNode in the triple and is annotated with its BGP position.
                 self.partOfRDF = ''  #TODO: The RDF Triple Pattern (s,p,o) (https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#defn_TriplePattern)
                                      #     that this node is part of (created)
                 #TODO: register our own namespace for mediator, and use its prefix to local labels, in order to prevent label mangling
-                if about == None: raise RuntimeError("QPTripleRef.init: Cannot create QPTripleRef from None")
-                atom = about.descend()
-                if atom.isAtom():
-                    self.about = atom
-                    self.setType(bgp_type)
-                else: raise NotImplementedError("QPTripleRef.init: Creating QPTripleRef from non-atom node ({}) is not implemented, and considered bad practice.".format(atom))
+#                 if about == None: raise RuntimeError("QPTripleRef.init: Cannot create QPTripleRef from None")
+#                 atom = about.descend()
+#                 if atom.isAtom():
+#                     self.about = atom
+#                     self.setType(bgp_type)
+#                 else: raise NotImplementedError("QPTripleRef.init: Creating QPTripleRef from non-atom node ({}) is not implemented, and considered bad practice.".format(atom))
             
-            def setType(self, bgp_type=None):
-                assert bgp_type != None, "Wrong type: Cannot add BGP position as None"
+            def addReferred(self, referred=None, bgp_type=None):
+                '''
+                A triple is being referred to by an entity. The entity refers a node in that triple. Include that referred node and annotate its BGP position.
+                Input:
+                    * referred (ParseStruct):    The node in the graph that is either an atom or can be traced to an atom, representing the entity element of interest.
+                    * bgp_type (['subject','property','object']): The BGP position of the node in the triple
+                Return: True when the triple is complete, False otherwise
+                '''
+                assert not (bgp_type == None or referred == None), "QPTripleRef.addReferred: Require node and its BGPpos that is being referred to by the entity. Please report this BUG."
+                atom = referred.descend()
+                if atom.isAtom():
+                    self.referred = atom
+                else: raise NotImplementedError("QPTripleRef.addReferred: Node that is being referred to by entity is a non-atom node ({}), and considered bad practice. Please report this BUG.".format(atom))
                 if bgp_type in ['subject','property','object']:
                     self.type = Context.localLabels[bgp_type]
                 elif bgp_type in [Context.localLabels['subject'], Context.localLabels['property'], Context.localLabels['object']]:
                     self.type = bgp_type
                 else:
-                    raise AttributeError("Expected a BGP position, but got {}".format(bgp_type))
-                self.addAssociate(bgp_type=self.type, assoc_node=self.about)
+                    raise AttributeError("QPTripleRef.addReferred: Expected a BGP position, but got {}. Please report this BUG".format(bgp_type))
+                return(len(self.associates) == 3)
 
             def addAssociate(self, bgp_type=None, assoc_node=None):
                 '''
@@ -193,7 +236,7 @@ class Context():
                     self.considerBinding(atom)
                 else: raise NotImplementedError("Sparql node unexpectedly appears parent of more than one atomic path. Found <{}> with siblings.".format(atom))
                 
-#                 print('[{}] determined as <{}> associate to <{}>'.format(str(assoc_node),bgp_position,str(self.about)))
+#                 print('[{}] determined as <{}> associate to <{}>'.format(str(assoc_node),bgp_position,str(self.referred)))
 
                 # Lastly, when all three nodes are added, generate an RDF triple and store it in its subject QPTripleRef
                 if len(self.associates) == 3:
@@ -203,15 +246,14 @@ class Context():
                 else: return False
             
             def considerBinding(self, qpnode):
-                # We assume that we only need to take into consideration the variables in order to be able to follow through with the translations, hence
-                # the PNAME's, i.e., iri's that are bound to this entity_expr, are assumed to be taken care of as another EDOAL alignment map
-#                 if type(qpnode).__name__ in ['VAR1', 'VAR2', 'PNAME_LN']:
+                # We assume that we only need to take into consideration the variables in order to be able to follow through with the translations.
+                # Note that the binds-attribute is a set, hence no double entries of variables
                 if type(qpnode).__name__ in ['VAR1', 'VAR2']:
-                    if (not str(qpnode) in self.binds) and (not qpnode == self.about):
-                        self.binds.append(str(qpnode))
+                    if not qpnode == self.referred:
+                        self.binds.add(str(qpnode))
             
             def __repr__(self):
-                result = "node:\n\tof type   : " + str(self.type) + "\n\tabout     : " + str(self.about)
+                result = "node:\n\tof type   : " + str(self.type) + "\n\tabout     : " + str(self.referred)
                 for a in self.associates:
                     result += "\n\tassociates: " + str(self.associates[a]) + " ( " + str(a) + " )"
                 for b in self.binds:
@@ -230,222 +272,201 @@ class Context():
                     result += ', ' + str(self.associates[Context.localLabels['object']]) + ')'
                 else: result += ', ' + str(None) + ')'
                 return(result)
-            
-        def __init__(self, *, entity_expression, sparql_tree, nsMgr):
-            self.represents = '' # (EntityExpression) the EDOAL entity_iri (Class, Property, Relation, Instance) name;
-                                 # This is in fact unnecessary because this is already stored in the higher Context class
-            self.qptRefs = []    # List of (QPTripleRef)s, i.e., Query Pattern nodes that address the Entity Expression
-            self.pfdNodes = {}   # Temporary namespace dictionary. Dict of (ParseStruct)s indexed by prefix : the PrefixDecl nodes that this entity_iri relates to
-            self.sparqlTree = '' # The sparql tree that this class uses to relate to
-            
-            assert isinstance(entity_expression, mediatorTools.EntityExpression)
-            assert isinstance(nsMgr, NSManager)
-            assert isinstance(sparql_tree, ParseStruct)
-            # Now find the atom of the main Node, i.e., what this is all about, and store it
-            if entity_expression == None or sparql_tree == None:
-                raise RuntimeError("Require parsed sparql tree and sparql node, and edoal entity_iri expression.")
-#             print("context: entity expression {}".format(entity_expression))
-            self.represents = entity_expression
-            self.sparqlTree = sparql_tree
-            # Now find the [PrefixDecl] nodes
-            #TODO: Remove this after refactoring to locally valid namespace expansion etc. in SPARQLStruct
-            prefixDecls = sparql_tree.searchElements(element_type=SPARQLParser.PrefixDecl)
-            _, src_iriref, _ = nsMgr.splitIri(entity_expression.getIriRef())
-            for prefixDecl in prefixDecls:
-                ns_prefix, ns_iriref = str(prefixDecl.prefix)[:-1], str(prefixDecl.namespace)[1:-1]
-                if ns_iriref == src_iriref: 
-                    self.pfdNodes[ns_prefix] = {}
-                    self.pfdNodes[ns_prefix]['ns_iriref'] = '<' + ns_iriref + '>'
-                    self.pfdNodes[ns_prefix]['node'] = prefixDecl
         
+        def getTriples(self, rq_node=None, referred=None):
+            '''
+            For query nodes that are part of the sparql query pattern, get the triples or triple parts that this node is part of.
+            Input: 
+              * rq_node (ParseStruct) - the node that represents the top of the graph in which triple parts are sought. 
+              * referred (['subject','property','object']) - the position that is being referred in the triples
+            Return: (list of QPTripleRef) - the (possibly) incomplete objects, each of which represents the (part of the) triple that 
+                the current node is part of.
+            '''
+            # The BGP's can share nodes through the use of ';'and ',', hence first consider the type of the node:
+            # Subjects - can be shared over different Properties
+            # Properties - can be shared over different Objects
+            # Objects - can not be shared
+            #
+            # Principle of operation:
+            # The graph is ordered as one S that can have multiple P branches that can have multiple O branches. Apply a recursive pattern,
+            # by deferring the start of the creation of a BGP triple from the (underlying) Object, since each unique object identifies one
+            # unique triple. Then, progressing upwards in the branch from the object, add the shared property and shared subject.
+            # Therefore, 
+            # 1 - for each subject, get from its underlying properties their BGP triples, and share the subject node with them;
+            # 2 - for each property, get from its underlying objects their BGP triples, and share the property node with them;
+            # 3 - for each object, create a triple, add the object node to it.
+            
+            assert isinstance(rq_node, ParseStruct) and (referred in ['subject','property','object'] or referred in [Context.localLabels['subject'], Context.localLabels['property'], Context.localLabels['object']]), \
+                "Context.getTriples(): illegal input ('{}', '{}'). Please file a BUG report".format(rq_node, referred)
+            qptList = []
+            done = False
+            
+            # Skip the non-branching, intermediate levels. Go up to the node below lowest branching node, i.e., where 
+            # the parent is branching.
+            # However, do NOT fail to notice a branch that represents an Object node, since that is not a branching node but
+            # should be used as the start of the triple!
+            nType = type(rq_node).__name__
+            while not (rq_node.getParent().isBranch() or nType in ['ObjectPath', 'Object']):
+                rq_node = rq_node.getParent()
+                nType = type(rq_node).__name__
+            
+            if nType == 'TriplesSameSubjectPath':
+                # Node has one pair of (VarOrTerm, PropertyListPathNotEmpty).
+                # 1 - Get this pair and:
+                # 2 - get the property triples
+                # 3 - add to each triple the shared subject from the VarOrTerm, either as being referred to, or mere as associate of
+                #
+                #TODO: SPARQL 1.1 - [TSSP] ::= VOT PPLPNE | TriplesNodePath PropertyListPath. We only handled the first possibility.
+                for vot, plpne, period in utils.grouper(rq_node.getChildren(), 3, "."):
+                    assert type(vot).__name__ == "VarOrTerm" and type(plpne).__name__ == 'PropertyListPathNotEmpty' and period == ".", \
+                        "Context.getTriples(): ('VarOrTerm', 'PropertyListPathNotEmpty', '.') tuple expected, got ('{}', '{}', '{}'). Please file BUG report.".format(vot, plpne, period)
+                    triples = self.getTriples(rq_node=plpne, referred=referred)
+                    done = True
+                    if referred == 'subject':
+                        # This represents the referred node. Hence add the node as being referred by the entity
+                        for triple in triples:
+                            done = triple.addReferred(referred=rq_node, bgp_type="subject") and done
+                    else:
+                        # Add the node as mere associate to this triple
+                        for triple in triples:
+                            done = triple.addAssociate(bgp_type="subject", assoc_node=rq_node) and done
+                    if not done: raise RuntimeError("Context.getTriples(): Triple SHOULD be complete when adding subject '{}'. Please file a BUG".format(rq_node))
+                    qptList.extend(triples)
+            
+            elif nType == "VarOrTerm":
+                # Node has only a subject descendant, hence no triple parts down this lane, since
+                # the atomic subject down here should have been addressed already during node [TriplesSameSubjectPath].
+                # In fact, this node should not have been asked for, hence raise a warning
+                warnings.warn("Context.getTriples(): Asking for triples from a '{}' node should not have happened. Ignoring this node.".format(rq_node))
+            elif nType == "PropertyListPathNotEmpty":
+                # Node has at least one pair of (VerbPath, ObjectListPath). 
+                # 1 - Get each pair and:
+                # 2 - get the object triples
+                # 3 - add to each triple the shared property from the VerbPath, either as being referred to, or mere as associate of
+                for verb, obj, semicol in utils.grouper(rq_node.getChildren(), 3, ";"):
+                    assert type(verb).__name__ == "VerbPath" and type(obj).__name__ in ['ObjectListPath', 'ObjectList'] and semicol == ";", \
+                        "Context.getTriples(): ('VerbPath', ['ObjectListPath' | 'ObjectList'], ';') tuple expected, got ('{}', '{}', '{}'). Please file BUG report.".format(verb, obj, semicol)
+                    triples = self.getTriples(rq_node=obj, referred=referred)
+                    if referred == 'property':
+                        # This represents the referred node. Hence add the node as being referred by the entity
+                        for triple in triples:
+                            done = triple.addReferred(referred=rq_node, bgp_type="property") or done
+                    else:
+                        # Add the node as mere associate to this triple
+                        for triple in triples:
+                            done = triple.addAssociate(bgp_type="property", assoc_node=rq_node) or done
+                    if done: raise RuntimeError("Context.getTriples(): Triple CANNOT be complete yet when adding property '{}'. Please file a BUG".format(rq_node))
+                    qptList.extend(triples)
+
+            elif nType in ['VerbSimple', 'VerbPath']:
+                # Node has only a Property descendant, hence no triple parts down this lane, since
+                # the atomic property down here should have been addressed already during node [PropertyListPathNotEmpty].
+                # In fact, this node should not have been asked for, hence raise a warning
+                warnings.warn("Context.getTriples(): Asking for triples from a '{}' node should not have happened. Ignoring this node.".format(rq_node))
+            elif nType in ['ObjectList', 'ObjectListPath']:
+                # Node has potentially more than one object that share the property. Hence:
+                # 1 - get triples for each object, and extend the return list with it.
+                for objNode, comma in utils.grouper(rq_node.getChildren(), 2, ","):
+                    assert type(objNode).__name__ in ['Object', 'ObjectPath'] and comma == ",", "Context.getTriples(): (['Object' | 'ObjectPath'], ',') pair expected, got ('{}', '{}'). Please file BUG report.".format(objNode, comma)
+                    qptList.extend(self.getTriples(rq_node=objNode, referred=referred))
+                        
+            elif nType in ['ObjectPath', 'Object']:
+                # Node has only an Object descendant, hence:
+                # 1 - create a QPTripleRef
+                # 2 - add the (object) node, either as being referred to, or mere as associate of
+                # 3 - add it to the return list
+                QPTriple = self.QPTripleRef()
+                if referred == "object":
+                    # This represents the referred node. Hence add the node as being referred by the entity
+                    done = QPTriple.addReferred(referred=rq_node, bgp_type="object")
+                else:
+                    # Add the node as mere associate to this triple
+                    done = QPTriple.addAssociate(bgp_type="object", assoc_node=rq_node)
+                if done: raise RuntimeError("Context.getTriples(): Triple CANNOT be complete yet when adding object '{}'. Please file a BUG".format(rq_node))
+                qptList.append(QPTriple)
+            
+            else:
+                raise AttributeError("Did not expect node '{}' ({}) while adding triples. Please file BUG report".format(rq_node, nType))
+            # Done with finding triples for this node, hence return the found triple parts
+            return qptList
         
-        def addQPTRefs(self, rq_node=None, bgp_pos=None, orig_qpt_ref=None):
+        def addQPTRefs(self, rq_node=None):
             """
             A query node that is part of the WHERE or ASK clause, is part of at least one and possibly (depending on the use of ';' and ',') more BGP triples.
-            This function adds QPTripleRef's, each of one representing a single complete BGP triple in the parsed query that the node is part of.
+            This function adds QPTripleRef's, each of one representing a single complete BGP triple in the parsed query that the input node is part of.
             Input: rq_node (ParseStruct) - the query node, representing one of {s, p, o}
             """
+            #
+            # Consider that this method is called with the query node in the graph that represents the entity for which a context is due. This method 
+            # will need to find all triples that this node is part of. It has to look in two directions for that; up and down. Downwards are all 
+            # parts (nodes) of triples that share this node; Upwards are the nodes that are shared by all downwards triple parts. Moreover, these upwards node(s) 
+            # complete these triple parts. 
+            # * In upwards direction, for an Object entity, it will find two nodes to complete the triple: the property 
+            #   and the subject nodes. For a Property entity, it will only need one node for the triple to complete, the Subject node. For a Subject 
+            #   node, there are no upward nodes to be found.
+            # * In downwards direction, a number of nodes can be found. A subject can be shared by many triples (using the ';' notation). A Property can be shared by
+            #   less, but still many triples (using the ','notation). An object is just one node. Each object indicates a unique triple.
+            # * The graph has a depth of three levels, in principle: the Subject level, Property level and Object level. However, due to the many variations 
+            #   that are allowed for sparql queries, each graph has several intermediate levels between the three. However, the query node that the method is 
+            #   entered with, is always located in a non-branching graph part, i.e., a straight, non-branching path between the query node and the atom.
+            #   The intermediate nodes between the query node and its atom are irrelevant, and can be skipped. In upwards direction, the only interesting nodes are 
+            #   the nodes that branch downwards. Hence, the intermediate nodes in upwards direction are irrelevant as well, and are skipped too.
+            #
+            # Principle of operation:
+            # 1 - Determine the position of the query node.
+            # 2 - Determine the atom node for the query node (skip several intermediate nodes downward), and store this as the referred node.
+            # 3 - Find all (incomplete) triples that share this node, i.e., a downwards direction.
+            # 4 - Then, go upwards from the query node to the subject node in a straight line to find either the (Property, Subject) nodes or 
+            #     the single (Subject) node that complete the found triples.
+            # 5 - Finally, add the triples to the QPTAssociation object
+            #
             assert isinstance(rq_node, ParseStruct)
-            rqNode = rq_node.descend()
-            if rqNode.isAtom():
-                # Work with atoms only as opposed to a random node in a leg between an atom and a branching node.
-                # The BGP's can share nodes through the use of ';'and ',', hence first consider the type of the node:
-                # Subjects - can be shared over different Properties
-                # Properties - can be shared over different Objects
-                # Objects - can not be shared
-                #
-                # Principle of operation:
-                # The graph is ordered as one S that can have multiple P branches that can have multiple O branches. Apply a recursive pattern,
-                # by deferring the start of the creation of a BGP triple from the (underlying) Object, since from any object's position, the object is
-                # part of one BGP triple that stretches in the graph as one upwards branch, from the object, passing its property towards its subject.
-                # Therefore, 
-                # 1 - for each subject, determine for its underlying properties its BGP triples,
-                # 2 - for each property, determine for its underlying objects their BGP triples,
-                # 3 - for each object, determine its BGP triple as the spawning the straight upwards line towards it subject
+            referredNode = rq_node.descend()
+            bgpPos = determineBGPPosition(rq_node)
+            # Work with atoms only as opposed to a random node in a leg between an atom and a branching node.
+            if referredNode.isAtom():
+                triples = self.getTriples(rq_node=rq_node, referred=bgpPos)
+                
+                ancestors = [rq_node] + rq_node.getAncestors()
+                for child, parent in utils.pairwise(ancestors):
+                    # A node of type "TriplesBlock" indicates the root of the triples, and
+                    # hence acts as the stop criterion.
+                    if type(parent).__name__ == "TriplesBlock":
+                        break
+                    elif parent.isBranch():
+                        # Skip the intermediary nodes, only process the branching nodes
+                        
+                        # A node of type "TriplesSameSubjectPath" indicates a Subject. Hence share this node / complete the triples.
+                        if type(parent).__name__ == 'TriplesSameSubjectPath':
+                            # Get the subject node, i.e., the VarOrTerm node
+                            children = parent.getChildren()
+                            for vot, _, _ in utils.grouper(children, 3, "."):
+                                # Associate the Subject node with the triples
+                                # Since this Subject nodes should complete the triples, check if that is so.
+                                done = True
+                                for triple in triples:
+                                    done = triple.addAssociate(bgp_type="subject", assoc_node=vot.descend()) and done
+                                if not done:
+                                    raise RuntimeError("Context.addQPTRefs(): Triples SHOULD ALL be complete when associating the subject '{}'. Please file a BUG".format(vot))
+                            
+                        # A node of type "PropertyListPathNotEmpty" indicates a Property. Hence share this node / complete the triples.
+                        elif type(parent).__name__ == 'PropertyListPathNotEmpty':
+                            # Get the property node
+                            for verb, obj, _ in utils.grouper(parent.getChildren(), 3, ";"):
+                                if obj == child:
+                                    # The triples originated from this object(s) path, hence:
+                                    # Associate the Property node with the triples
+                                    # Since this Property nodes should NOT complete the triples, check if that is so.
+                                    done = False
+                                    for triple in triples:
+                                        done = triple.addAssociate(bgp_type="property", assoc_node=verb) or done
+                                    if done:
+                                        raise RuntimeError("Context.addQPTRefs(): Triples CANNOT be complete already when associating the property '{}'. Please file a BUG".format(verb))
 
-                bgpPos = bgp_pos if bgp_pos else determineBGPPosition(rqNode)
-                if bgpPos == Context.localLabels['subject']:
-                    # Find all [TriplesSameSubjectPath] nodes, and
-                    # for each node find the (VerbPath, PropertyListPathNotEmpty) grandchild pairs, each of which represent a new BGP triple
-                    subjectNode = rq_node
-                    propertyNode = None
-                    objectNode = None
-                    done = False
-                    topOfBranch = rq_node
-                    for ancestor in rq_node.getAncestors():
-                        nType = type(ancestor).__name__
-                        print("\t ancestor '{}' ({})".format(nType, ancestor))
-                        if not ancestor.isBranch():
-                            # This is ancestor is not a branching node. Skip to the next ancestor but remember this node as, eventually,
-                            # the top node of this branch
-                            topOfBranch = ancestor
-                        elif nType == 'TriplesSameSubjectPath':
-                            # The main node is a Subject, which can be shared amongst various Properties.
-                            # Therefore, for all children that are [PropertyListPathNotEmpty], each represents a distinct BGP triple with this shared Subject.
-                            #TODO: Check whether to discern between the type of TERM (BNode, URIREF, Literal)
-                            for child in ancestor.getChildren():
-                                print("assessing node {} for subject association".format(child))
-                                if type(child).__name__ == "PropertyListPathNotEmpty":
-                                    # 1 - This is the main query node, hence create QPT triple of type Subject
-                                    QPTriple = self.QPTripleRef(about=subjectNode, bgp_type=Context.localLabels['subject'])
-                                    # 2 - For all underlying (VerbPath, [ObjectList | ObjectListPath]) pair, add its QPT Refs
-                                    #     Although it might be more efficient to directly go to the Object, e.g., [ObjectListPath | ObjectPath], nodes and thereby
-                                    #     skipping the Property ([VerbPath]) nodes, we decide for the latter for being cleaner.... 
-                                    for grandchild in child.getChildren():
-                                        if type(grandchild).__name__ == "VerbPath":
-                                            self.addQPTRefs(rq_node=grandchild, bgp_pos=Context.localLabels['property'], orig_qpt_ref=QPTriple)
-                            done = True
-                        if done:
-                            break
-                                    
-                elif bgpPos == Context.localLabels['property']:
-                    # 0 - Find the [PropertyListPathNotEmpty] node, and:
-                    # 1 - Go down again and find its own (VerbPath, [ObjectList | ObjectListPath]) pair. 
-                    # 2 - Then, each [ObjectList | ObjectListPath] represents an object of a new BGP
-                    subjectNode = None
-                    propertyNode = rq_node
-                    objectNode = None
-                    done = False
-                    topOfBranch = rq_node
-                    for ancestor in rq_node.getAncestors():
-                        nType = type(ancestor).__name__
-                        print("\t ancestor '{}' ({})".format(nType, ancestor))
-                        # 0 - Find the [PropertyListPathNotEmpty] node
-                        if not ancestor.isBranch():
-                            # This is ancestor is not a branching node. Skip to the next ancestor but remember this node as, eventually,
-                            # the top node of this branch
-                            topOfBranch = ancestor
-                        elif nType == 'PropertyListPathNotEmpty':
-                            # Found the PLPNE ancestor, 
-                            # 1 - Go down again and find its own (VerbPath, [ObjectList | ObjectListPath]) pair. 
-                            for verbPath, objectList, _ in utils.grouper(ancestor.getChildren(), 3, "?"):
-                                if verbPath == topOfBranch:
-                                    # 2 - Then, for all underlying ([ObjectList | ObjectListPath]), add its QPT Refs, i.e.,   
-                                    #     create new QPT triple, unless we have inherited an existing one through recursion.
-                                    if orig_qpt_ref:
-                                        # This is the inherited QPT triple, created for a shared Subject query node.
-                                        if len(orig_qpt_ref.associates) < 3:
-                                            # The main QPT triple is not complete, hence *add* the Property and proceed with its Object
-                                            assert not orig_qpt_ref.addAssociate(bgp_type=Context.localLabels['property'], assoc_node=propertyNode), \
-                                                "addQPTRefs: Complete BGP triple not expected yet. Please file a BUG"
-                                            self.addQPTRefs(rq_node=objectList, bgp_pos=Context.localLabels['object'], orig_qpt_ref=orig_qpt_ref)
-                                        else:
-                                            # The main QPT triple is already complete, hence *create* a new Subject QPT triple, 
-                                            # and then again add the Property and proceed with its Object
-                                            QPTriple = self.QPTripleRef(about=orig_qpt_ref.about, bgp_type=Context.localLabels['subject'])
-                                            assert not orig_qpt_ref.addAssociate(bgp_type=Context.localLabels['property'], assoc_node=propertyNode), \
-                                                "addQPTRefs: Complete BGP triple not expected yet. Please file a BUG"
-                                            self.addQPTRefs(rq_node=objectList, bgp_pos=Context.localLabels['object'], orig_qpt_ref=QPTriple)
-                                    else:
-                                        # No inheritance, hence, 
-                                        # this *is* the main query node, hence create a new Property QPT triple and proceed with its Object(s)
-                                        # only, since the Subject will follow from that.
-                                        QPTriple = self.QPTripleRef(about=propertyNode, bgp_type=Context.localLabels['property'])
-                                        self.addQPTRefs(rq_node=objectList, bgp_pos=Context.localLabels['object'], orig_qpt_ref=QPTriple)
-                            done = True
-                        else: 
-                            raise RuntimeError("Unexpectedly found <{}> as ancestor to <{}> when in a Property Context. Please file a BUG report".format(nType, ancestor))
-                        if done:
-                            break
-
-                elif bgpPos == Context.localLabels['object']:
-                    # Since an Object can only be part of one single BGP, complete the {s,p,o} BGP triple by 
-                    # adding the Property and Subject nodes that are associated to this triple
-                    ancestors = rq_node.getAncestors()
-                    print("searching to complete BGP triple; {} ancestors found".format(len(ancestors)))
-                    # The stop criterion for this loop is not in its ancestors, but in having found all three BGP elements that this QPTriple is about.
-                    done = False
-                    subjectNode = None
-                    propertyNode = None
-                    objectNode = rq_node
-                    topOfBranch = rq_node
-                    for ancestor in ancestors:
-                        nType = type(ancestor).__name__
-                        print("\t ancestor '{}' ({})".format(nType, ancestor))
-                        if not ancestor.isBranch():
-                            # This is ancestor is not a branching node. Skip to the next ancestor but remember this node as, eventually,
-                            # the top node of this branch
-                            topOfBranch = ancestor
-                        elif nType == 'TriplesSameSubjectPath':
-                            # The main node was an Object, the Property has already been found since that is an earlier ancestor,
-                            # and hence, this is the Subject that completes the BGP triple (since there is only 1 subject in a TSSP).
-                            #TODO: Check whether to discern between the type of TERM (BNode, URIREF, Literal)
-                            for child in ancestor.getChildren():
-                                print("assessing node {} for subject association".format(child))
-                                if type(child).__name__ == "VarOrTerm":
-                                    subjectNode = child
-                                    # Now that the triple is found completely, add it!
-                                    # If the main query node is a Subject or Property, use the QPT triple that already had been created, 
-                                    # otherwise, the main query node represents an Object and a new QPT triple needs to be created.
-                                    # If anything, add this QPT triple to the list.
-                                    if orig_qpt_ref:
-                                        # main node represents Subject or Property, hence add to the QPT triple the Object
-                                        done = orig_qpt_ref.addAssociate(bgp_type='object', assoc_node=objectNode)
-                                        if orig_qpt_ref.type == Context.localLabels['subject']:
-                                            # main node represents Subject, hence add to the QPT triple also the Property
-                                            # This doesn't seem necessary because the Property Node has already been added in the previous recursion.
-#                                             done = orig_qpt_ref.addAssociate(bgp_type='property', assoc_node=propertyNode)
-                                            pass
-                                        elif orig_qpt_ref.type == Context.localLabels['property']:
-                                            # main query node represents Property, hence add to the QPT triple also the Subject
-                                            done = orig_qpt_ref.addAssociate(bgp_type='subject', assoc_node=subjectNode)
-                                        # Add the QPT triple to the list
-                                        self.qptRefs.append(orig_qpt_ref)
-                                    else:
-                                        # main query node represents Object, hence create the Object QPT triple and add the Subject and Property
-                                        QPTriple = self.QPTripleRef(about=objectNode, bgp_type=Context.localLabels['object'])
-                                        _    = QPTriple.addAssociate(bgp_type='subject', assoc_node=subjectNode)
-                                        done = QPTriple.addAssociate(bgp_type='property', assoc_node=propertyNode)
-                                        # Add the QPT triple to the list
-                                        self.qptRefs.append(QPTriple)
-                                    # We can break this for loop, since there is only one child that represents a Subject
-                                    if not done: raise RuntimeError("addQPTRefs: Expected the BGP triple complete, but it isn't. Please file a BUG")
-                                    break
-                        elif nType == 'PropertyListPathNotEmpty':
-                            # We are in a PLPNE leg, AND, the main node is an Object, hence,
-                            # the property of this triple can be found in one of the VerbPaths, particularly that VerbPath that is sibling
-                            # to the [ObjectListPath | ObjectList] leg that contains the main node Object.
-                            #    A PLPNE consists of pairs of (VerbPath, [ObjectListPath | ObjectList]), separated by a SEMICOL. 
-                            #    The [ObjectListPath | ObjectList] represents the Object, which might be the main node itself, indicating the correct pair.
-                            for verbPath, objectList, _ in utils.grouper(ancestor.getChildren(), 3, "?"):
-                                print("assessing node {} for property association".format(objectList))
-                                if objectList == topOfBranch:
-                                    # Found the pair that includes the branch leading to itself, hence, its VerbPath is the associated Property.
-                                    # More properties are not to be found, hence store the Property Node and break the for loop.
-                                    #TODO: Check whether it is relevant to discern between the type of TERM (BNode, URIREF, Literal)
-                                    propertyNode = verbPath 
-                                    break
-                        elif nType == 'TriplesBlock':
-                            raise RuntimeError('We assumed this to be dead code, because the Query Pattern should had been processed by now. Found <{}> as ancestor to <{}>. Please file a BUG'.format(nType, ancestor))
-                        else: 
-                            warnings.warn("Unexpectedly found <{}> as ancestor to <{}>. This might be valid, but requires further study. All hell will break loose?!".format(nType, ancestor))
-                        print("\t\t(s, p, o) status: ({}, {}, {})".format(subjectNode, propertyNode, objectNode))
-                        if done:
-                            break
-
+                # 5 - Add the triples to the QPTAssociation object
+                self.qptRefs.extend(triples)   
             else: 
-                #TODO: Recursive processing of branch when dumped into non-leaf branch 
-                raise NotImplementedError("Not Implemented Yet: recursive processing when stepped in non-leaf branch ([{}])".format(rqNode))
+                raise RuntimeError("Context.addQPTRefs(): Fatal - Considered illegal to add a '{}'-type query node as '{}'".format(referredNode, ))
             
 #===============================================================================
 # METHOD HAS BEEN REPLACED BY ABOVE addQPTRefs(),
@@ -586,7 +607,7 @@ class Context():
         def getQPTRef(self, about):
             refs = []
             for n in self.qptRefs:
-                if n.about == about:
+                if n.referred == about:
                     refs.append(n)
             if len(refs) == 1: return refs[0]
             assert len(refs) == 0, "Did not expect more than one matches for {}".format(about)
@@ -708,7 +729,6 @@ class Context():
 
 
         def __init__(self, sparql_tree=None, sparql_var_name='', entity=None):
-            from mediator import mediatorTools
             '''
             Input:
             - sparql_tree: (.ParseStruct) : The parsed tree must contain at least one 'FILTER' element, which must not be the tree root.
@@ -783,91 +803,100 @@ class Context():
         Returns the context, contained in attributes:
         * entity_expr  : (mediator.mediatorTools.EntityExpression) the subject EntityExpression that this context is about (from input)
         * parsedQuery  : (ParseStruct) the parsed sparql-query-tree that requires translation (from input)
-        * qptAssocs    : the query pattern triples in the sparql query that are associated by the subject EntityExpression
+        * qptAssocs    : the query pattern triples in the sparql query that are associated by the subject Entities in the EntityExpression
         * constraints  : a list of the bound variables that occur in the qptAssocs, and for which a constraint in the sparql Query Pattern FILTER exists
         
         '''
         self.entity_expr = ''    # (mediator.mediatorTools.EntityExpression) The EDOAL entity_expression, i.e., one of (Class, Property, Relation, Instance) or their combinations, this context is about;
         self.parsedQuery = ''    # (parser.grammar.ParseInfo) The parsed query that is to be mediated
-        self.qptAssocs = []      # List of (QueryPatternTripleAssociation)s, representing the triples that are addressing the subject entity_expression
+        self.qptAssocs = {}      # Dictionary of (QueryPatternTripleAssociation)s, indexed by the entity, representing the triples that are addressing the subject entity_expression
         self.constraints = {}    # Dictionary, indexed by the bound variables that occur in the qptAssocs, as contextualised Filters.
         self.nsMgr = None        # (namespaces.NSManager): the current nsMgr that can resolve any namespace issues of this mediator 
         
 #         assert isinstance(entity_expression, Mediator.EntityExpression) and isinstance(sparqlTree, ParseStruct)
-        assert isinstance(sparqlTree, ParseStruct) and isinstance(nsMgr, NSManager), "Context.VarConstraints.__init__(): Parsed sparql tree and namespace mgr required"
-        assert isinstance(entity_expression, mediatorTools.EntityExpression), "Context.VarConstraints.__init__(): Cannot create context without subject entity expression"
-        
-        if not entity_expression.isAtomicEntity(): raise NotImplementedError("Context.VarConstraints.__init__(): Cannot process entity expressions yet, only simple entities. Got {}".format(entity_expression.getType()))
+        assert isinstance(sparqlTree, ParseStruct) and isinstance(nsMgr, NSManager), "Context.__init__(): Parsed sparql tree and namespace mgr required"
+        assert isinstance(entity_expression, mediatorTools.EntityExpression), "Context.__init__(): Cannot create context without subject entity expression"
 
+        # Initialize self
         self.nsMgr = nsMgr
-#         print("Context.VarConstraints.__init__(): entity expr: {}".format(entity_expression))
+#         print("Context.__init__(): entity expr: {}".format(entity_expression))
         self.entity_expr = entity_expression
         #TODO: process other sparqlData than sparql query, i.e., rdf triples or graph, and sparql result sets
         self.parsedQuery = sparqlTree
         if self.parsedQuery == []:
-            raise RuntimeError("Context.VarConstraints.__init__(): Cannot parse the query sparqlData")
+            raise RuntimeError("Context.__init__(): Cannot parse the query sparqlData")
         
-        eePf, eeIri, eeTag = self.nsMgr.splitIri(self.entity_expr.getIriRef())
-        src_qname = eePf + ':' + eeTag
-#         print("Context.VarConstraints.__init__(): eeIri: {}".format(eeIri))
-#         print("Context.VarConstraints.__init__(): eePf : {}".format(eePf))
-#         print("Context.VarConstraints.__init__(): eeTag: {}".format(eeTag))
-#         print("Context.VarConstraints.__init__(): eeOrg: {}".format(self.entity_expr.getIriRef()))
-#         print("Context.VarConstraints.__init__(): entity type {}".format(entity_type))
-        
-        # 1: Find the qptRefs for which the context is to be build, matching the Entity1 Name and its Type
-        srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value=self.entity_expr.getIriRef())
-        if srcNodes == []: 
-            raise RuntimeError("Context.VarConstraints.__init__(): Cannot find element '{}' of type '{}' in sparqlData".format(self.entity_expr.getIriRef(), entity_type))
-        
-        # 2: Build the context
-        self.qptAssocs = []         # List of (QPTripleRef)s that address the edoal entity_iri.
-#         self.qmNodes = {}           # a dictionary, indexed by the qp.about, i.e., the name of the EntityExpression, of lists of constraints 
-                                    # that appear in the Query Modifiers clause, each list indexed by the variable name that is bound
-        # 2.1: First build the Query Pattern Triples
-        # 2.1.1: Find the top of the query's Query Pattern
+        # 0: Consider the Entities that are part of the EntityExpression
+        entities = []
+        if self.entity_expr.isAtomicEntity():
+            entities.append(self.entity_expr)
+        else:
+        #TODO: expand to the use of Entity Expressions
+            raise NotImplementedError("Context.__init__(): Cannot process entity expressions yet, only simple entities. Got {}".format(entity_expression.getType()))
 
+        for entity in entities:
+            entityIRI = entity.getIriRef()
+            ePf, eIri, eTag = self.nsMgr.splitIri(entityIRI)
+            src_qname = ePf + ':' + eTag
+    #         print("Context.__init__(): eeIri: {}".format(eeIri))
+    #         print("Context.__init__(): eePf : {}".format(eePf))
+    #         print("Context.__init__(): eeTag: {}".format(eeTag))
+    #         print("Context.__init__(): eeOrg: {}".format(self.entity_expr.getIriRef()))
+    #         print("Context.__init__(): entity type {}".format(entity_type))
             
-        # 2.1.2: For each node, find the qptAssocs
-        for qrySrcNode in srcNodes:
-            # Find and store the QueryPatternTripleAssociation of the main Node
-#             print("Context.VarConstraints.__init__(): Building context for {}".format(qrySrcNode))
-#             print('='*30)
-            qptAssoc = self.QueryPatternTripleAssociation(entity_expression=self.entity_expr, sparql_tree=self.parsedQuery, nsMgr=self.nsMgr)
-            qptAssoc.addQPTRefs(qrySrcNode)
-            self.qptAssocs.append(qptAssoc)
-#             print("Context.VarConstraints.__init__(): QP triple(s) determined: \n\t", self.qptAssocs.__repr__())
-#             print("Vars that are bound by these: ")
-#             for n in qpt.qptRefs:
-#                 for b in n.binds:
-#                     print("\t<{}>".format(b))
-#                 print("\n")
-        
-        # 2.2: Next, build the Query Modifiers that address the variables that are bound by the considered Query Pattern
-#         print('-+'*30)
-        #TODO: We assume only one [WhereClause] (hence, qryPatterns[0])  
-        # 2.2.1: Select the Query Modifiers top node in this Select Clause
-        
-#         filterTop = list(qryPatterns[0].searchElements(element_type=GraphPatternNotTriples))[0]
-        #TODO: Assumed one [GraphPatternNotTriples] (hence, list(...)[0])  
-        filterTop = self.parsedQuery.searchElements(element_type=SPARQLParser.GraphPatternNotTriples)
-        if filterTop == []:
-            raise RuntimeError("Context.VarConstraints.__init__(): Cannot find Query Modifiers clause (Filter)")
-#             print('Top for QM part of tree:')
-#             print(filterTop.dump())
-        # 2.2.2 - for each bound variable in the qp, collect the ValueLogics that represent its constraint
-        for qpt in self.qptAssocs:
-            for qpNode in qpt.qptRefs:
-                for var in qpNode.binds:
-                    # Find the ValueLogicExpression that addresses this variable
-                    self.constraints[str(var)] = []
-#                     print("Context.VarConstraints.__init__(): Elaborating on var <{}>".format(str(var)))
-#                     print('='*30)
-                    # 3 - determine and store its value logics
-                    # Cycle over every FILTER subtree
-                    for filter in filterTop:
-                        vc = self.VarConstraints(sparql_tree=filter, sparql_var_name=str(var), entity = self.entity_expr)
-                        self.constraints[str(var)].append(vc)
+            # 1: Find the qptRefs for which the context is to be build, matching the EntityIRI Name and its Type
+            #TODO: When searching for QueryPatternTriple(s) in the SPARQL query that equal the entityIRI that is part of an EntityExpression, take CONTEXT, i.e. different parts of query, into account
+            # Currently, ignore more than one query contexts and search the whole graph.
+              
+            srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value=entityIRI)
+            if srcNodes == []: 
+                raise RuntimeError("Context.__init__(): Cannot find element '{}' of type '{}' in sparqlData".format(entityIRI, entity_type))
+            
+            # 2: Build the context: Query Pattern Triples part
+            #    This stores all (references to) triples that refer to the entityIRI
+            # More than one node can be the result for the search, for two reasons:
+            #    1 - the searched value (now: entityIRI) matches triples from multiple contexts. The ignored issue here is that each context, e.g., [WhereClause], 
+            #        can use a similar value for referring to a distinct thing (but not with IRI's)
+            #    2 - the searched value (now: entityIRI) matches more triples in one context. The issue here is that while shared subjects, i.e., using ';', or shared
+            #        properties, i.e., using ',', are shortcuts for full triple notation, the search result returns as many nodes as the IRI is used. 
+            #        Hence, ( ?a IRI ?b. ?a IRI ?c. ) returns two nodes, while the equal ( ?a IRI ?b, ?c. ) returns one.
+            #        Both shared and unshared IRI's must return an identical context. This is handled by collecting all triples first in one Object, and then storing 
+            #        that object in self.
+
+            # 2.1: First build a Query Pattern Triple Association for this entityIRI
+            qptAssoc = self.QueryPatternTripleAssociation(entity=entity, sparql_tree=self.parsedQuery, nsMgr=self.nsMgr)
+
+            # 2.2: For each node, add its qptRef(s) (multiplicity depends on whether the node is or is not shared amongst triples).
+            for qrySrcNode in srcNodes:
+                # Collect all QueryPatternTriples of the main Node. Shared versus non-shared nodes are handled transparently by the addQPTRefs() method. 
+                qptAssoc.addQPTRefs(qrySrcNode)
+            # Store the triples as associated to the subject entityIRI
+            self.qptAssocs[entityIRI] = qptAssoc
+            # First process all entities in the EntityExpression, since then all variables that are bound by this EntityExpression are known.
+            
+        # 3: Build the context: Query Modifiers part 
+        #    (this addresses the constraints on the variables that are bound by the considered Query Patterns)
+        # 3.1: Select the Query Modifiers top node in this Select Clause
+        #TODO: Assuming one FILTER, i.e., one [GraphPatternNotTriples]   
+        filters = self.parsedQuery.searchElements(element_type=SPARQLParser.GraphPatternNotTriples)
+        if filters == []:
+            raise RuntimeError("Context.__init__(): Cannot find Query Modifiers clause (Filter)")
+
+        # 3.2 - Collect the ValueLogics that represent the constraint of this entityExpression
+        # 3.2.1 - Loop over all entities to collect all variables
+        vars = set()
+        for entity in entities:
+            qptAssoc = self.qptAssocs[entityIRI]
+            for qptRef in qptAssoc.qptRefs:
+                vars.update(qptRef.binds)
+
+        # 3.2.2 - Loop over all vars and collect the ValueLogicExpression that addresses this variable
+        for var in vars:
+            self.constraints[str(var)] = []
+            # Cycle over every FILTER subtree
+            for filter in filters:
+                vc = self.VarConstraints(sparql_tree=filter, sparql_var_name=str(var), entity = self.entity_expr)
+                self.constraints[str(var)].append(vc)
 
 
     def __str__(self):
