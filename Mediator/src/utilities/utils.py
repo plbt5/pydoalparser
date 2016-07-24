@@ -14,4 +14,17 @@ def grouper(iterable, n=2, filler=None):
     
     source: http://stackoverflow.com/questions/5389507/iterating-over-every-two-elements-in-a-list
     """
-    return itertools.zip_longest(*[iter(iterable)]*n, fillvalue=filler)
+    result = itertools.zip_longest(*[iter(iterable)]*n, fillvalue=filler)
+    return result
+
+
+def pairwise(iterable):
+    '''
+    Generic function to iterate a list pairwise, with subsequent pairs overlap each other. 
+    s -> (s0,s1), (s1,s2), (s2, s3), ...
+    
+    source: http://stackoverflow.com/questions/5434891/iterate-a-list-as-pair-current-next-in-python
+    '''
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return zip(a, b)

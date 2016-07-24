@@ -140,7 +140,10 @@ class NSManager():
     def splitIri(self, iri_string):
         '''
         Split namespace notation into prefix, prefix_expansion, iri_path. 
-        Currently only able to split from Clark's notation as input.
+        input: string, representing full IRI, in either:
+            1 - Clark's notation;
+            2 - Qualified Name;
+            3 - Full expanded IRI
         Notations without '{}' part assumes to live in Base
         '''
         prefix = ''
@@ -192,7 +195,7 @@ class NSManager():
     def _splitIRI(self, in_string):
         '''
         Split an IRI and return its function_path and the advancing base-url, the latter in its prefix
-         form as it can be found in the namespace table.
+        form as it can be found in the namespace table.
         '''
         assert self.isIRI(in_string), "Expected to split an IRI, but got <{}>".format(in_string)
         # Get rid of the '< >' pair
