@@ -10,16 +10,25 @@ import inspect
 import json
 from mediator import sparqlTools, mediatorTools
 from utilities import namespaces
+from itertools import zip_longest
 
 
 # Skeleton for a manifest.json driven test process
+#
+#     def setUp(self):
+#         self.testdir = './resources/sparqlQueries/'
+#         filepath = self.testdir + 'manifestXX.json'
+#         print("="*30)
+#         print("Test configuration from {}:".format(filepath))
+#         with open(filepath) as f:    
+#             self.testCases = json.load(f)
 # 
 #     def testSomeModuleName(self):
 #         testModuleName = inspect.currentframe().f_code.co_name
-#         tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:SUT"] == testModuleName]
+#         tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:testDef"] == testModuleName]
 #         print('Testcase: "{}" about {}, module under test "{}" has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], testModuleName, len(tests)))
 #         for test in tests:
-#             print('\tTesting {} ({}) ..'.format(self.testCases[test]["rdfs:comment"], self.testCases[test]["mf:name"]), end="")
+#             print('\tTesting {}.{} ({}): '.format(self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
 #             for testData in self.testCases[test]["mf:action"]["mf:data"]:
 #                 if testData["rdf:type"] == "file": 
 #                     file = self.testdir + testData["value"]
@@ -61,7 +70,7 @@ class TestVarConstraints(unittest.TestCase):
 
 
     def setUp(self):
-        self.testdir = './resources/sparqlQueries/'
+        self.testdir = './resources/sparqlQueries/sparqlTools/'
         filepath = self.testdir + 'manifest01.json'
         print("="*30)
         print("Test configuration from {}:".format(filepath))
@@ -227,9 +236,17 @@ class TestVarConstraints(unittest.TestCase):
 
 from mediator import EDOALparser
 class TestQueryPatternTripleAssociation(unittest.TestCase):
+    '''
+    Test the creation of a complete QPTAssoc around one EntityExpression. A QPTAssoc contains:
+            represents = '' # (EntityExpression) the EDOAL entity_iri (Class, Property, Relation, Instance) name;
+            qptRefs = []    # List of (QPTripleRef)s, i.e., Query Pattern nodes that address the Entity Expression
+            pfdNodes = {}   # Temporary namespace dictionary. Dict of (ParseStruct)s indexed by prefix : the PrefixDecl nodes that this entity_iri relates to
+            sparqlTree = '' # The sparql tree that this class uses to relate to
+
+    '''
                                         
     def setUp(self):
-        self.testdir = './resources/sparqlQueries/'
+        self.testdir = './resources/sparqlQueries/sparqlTools/'
         filepath = self.testdir + 'manifest03.json'
         print("="*30)
         print("Test configuration from {}:".format(filepath))
@@ -249,11 +266,11 @@ class TestQueryPatternTripleAssociation(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def testAddQPTRef(self):
+    def testAddQPTRefs(self):
         import os
         testModuleName = inspect.currentframe().f_code.co_name
-        tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:name"] == testModuleName]
-        print('Testcase: "{}" about {}, has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], len(tests)))
+        tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:testDef"] == testModuleName]
+        print('Testcase: "{}" about {}, module under test "{}" has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], testModuleName, len(tests)))
         # Test environment input
         # 1 - Create EntityExpression Class
         # 2 - Set related element_type = SPARQLParser.IRIREF
@@ -261,12 +278,13 @@ class TestQueryPatternTripleAssociation(unittest.TestCase):
         # 4 - search for proper node in sparql tree
         
         for test in tests:
-            print('\tTesting system under test "{}" with {} subtests: {} ({}) ..'.format(self.testCases[test]["mf:SUT"], len(self.testCases[test]["mf:action"]["mf:data"]), self.testCases[test]["rdfs:comment"], self.testCases[test]["mf:name"]), end="")
+            print('\tTesting {}.{} ({}): '.format(self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
             if list(self.testCases[test]["mf:action"]["mf:subject"])[0] != "sparle_query": raise TestException("Invalid test data, expected 'sparle_query', got '{}'".format(list(self.testCases[test]["mf:action"]["mf:subject"])[0]))
             file = self.testdir + self.testCases[test]["mf:action"]["mf:subject"]["sparle_query"]["value"]
             if not os.path.exists(file): raise TestException("Incorrect test data, cannot find file {}".format(file))
             with open(file) as f:
                 parsedQry = parseQuery(f.read())
+            print(parsedQry.dump())
             # Expand the query node to test
             parsedQry.expandIris()
 #             print(parsedQry.dump())
@@ -278,7 +296,7 @@ class TestQueryPatternTripleAssociation(unittest.TestCase):
                 srcNodes = parsedQry.searchElements(element_type=SPARQLParser.iri, value=sparqlIriValue)
                 if len(srcNodes) == 0: raise TestException("Incorrect test data, cannot find node of {} in sparql query".format(sparqlIriValue))
                 # Create the Entity Element that requires a triple association in the sparql tree
-                entity_expr = mediatorTools._Entity(entity_iri=testData["sparql_iri"]["value"], entity_type=EDOALparser.Alignment.EDOAL[testData["EE_type"]["value"]], nsMgr=self.nsMgr)
+                entity_expr = mediatorTools._Entity(entity_iri=sparqlIri, entity_type=EDOALparser.Alignment.EDOAL[testData["EE_type"]["value"]], nsMgr=self.nsMgr)
         
                 for testCriteria in [r for r in self.testCases[test]["mf:result"] if r["id"]==testData["id"]]:
                     # Now the test environment is complete, hence perform the PASS and FAIL tests
@@ -289,24 +307,26 @@ class TestQueryPatternTripleAssociation(unittest.TestCase):
                         filename = testCriteria["value"]
 #                         print("filename:\n", filename)
                         with open(self.testdir + filename) as criteria_f:
-                            resultsExp = json.load(criteria_f)
+                            re = json.load(criteria_f)
+                            resultsExp = re["results"]
                         # Validate the number of QPT's that should be found in this test setup
                         assert len(srcNodes) == int(testData["qptCount"]), "Expected '{}', got '{}'".format(testData["qptCount"], len(srcNodes))
                         
                         # PERFORM THE OPERATION UNDER TEST (init QPTA)
-                        qpt = sparqlTools.Context.QueryPatternTripleAssociation(entity_expression=entity_expr, sparql_tree=parsedQry, nsMgr=self.nsMgr)
+                        qpt = sparqlTools.Context.QueryPatternTripleAssociation(entity=entity_expr, sparql_tree=parsedQry, nsMgr=self.nsMgr)
 
                         # Test outcome against expected criteria
                         assert qpt.represents == entity_expr, "Expected '{}', got '{}'".format(entity_expr, qpt.represents)
                         # PERFORM THE OPERATION UNDER TEST (now for each srcNode)
                         for count, srcNode in enumerate(srcNodes):
-                            qpt.addQPTRef(srcNode)
+                            qpt.addQPTRefs(srcNode)
                             # Test outcome against expected criteria
-                            for k, qptCrit in enumerate(resultsExp["results"][sparqlIri]["qpts"]):
-                                assert str(qpt.qptRefs[k].about) == entity_expr.getIriRef(), "Expected '{}', got '{}'".format(entity_expr.getIriRef(), qpt.qptRefs[k].about)
-                                assert str(qpt.qptRefs[k].about) == qptCrit["n"]["value"], "Expected '{}', got '{}'".format(qptCrit["n"]["value"], qpt.qptRefs[k].about)
-                                assert type(qpt.qptRefs[k].about).__name__ == qptCrit["n"]["type"], "Expected '{}', got '{}'".format(qptCrit["n"]["type"],type(qpt.qptRefs[k].about).__name__)
-                                print(".", end="")
+                            for k, qptCrit in enumerate(resultsExp[sparqlIri]["qpts"]):
+                                print("{}({})".format(testData["id"],k), end=" ")
+                                assert len(qpt.qptRefs) == int(resultsExp[sparqlIri]["count"]), "Expected '{}', got '{}'".format(resultsExp[sparqlIri]["count"], len(qpt.qptRefs))
+                                assert str(qpt.qptRefs[k].referred) == entity_expr.getIriRef(), "Expected '{}', got '{}'".format(entity_expr.getIriRef(), qpt.qptRefs[k].referred)
+                                assert str(qpt.qptRefs[k].referred) == qptCrit["n"]["value"], "Expected '{}', got '{}'".format(qptCrit["n"]["value"], qpt.qptRefs[k].referred)
+                                assert type(qpt.qptRefs[k].referred).__name__ == qptCrit["n"]["type"], "Expected '{}', got '{}'".format(qptCrit["n"]["type"],type(qpt.qptRefs[k].referred).__name__)
                                 assert qpt.qptRefs[k].type == qptCrit["t"]["value"], "Expected '{}', got '{}'".format(qptCrit["t"]["value"], qpt.qptRefs[k].type)
                                 assert str(qpt.qptRefs[k].associates['SUBJ']) == qptCrit["s"]["value"], "Expected '{}', got '{}'".format(qptCrit["s"]["value"], str(qpt.qptRefs[k].associates['SUBJ']))
                                 assert type(qpt.qptRefs[k].associates['SUBJ']).__name__ == qptCrit["s"]["type"], "Expected '{}', got '{}'".format(qptCrit["s"]["type"], type(qpt.qptRefs[k].associates['SUBJ']).__name__)
@@ -316,30 +336,28 @@ class TestQueryPatternTripleAssociation(unittest.TestCase):
                                 assert type(qpt.qptRefs[k].associates['OBJ']).__name__ == qptCrit["o"]["type"], "Expected '{}', got '{}'".format(qptCrit["o"]["type"], type(qpt.qptRefs[k].associates['OBJ']).__name__)
                                 for vb in qpt.qptRefs[k].binds:
                                     assert vb in qptCrit["b"], "Expected '{}', got '{}'".format(qptCrit["b"], vb)   
-                        assert len(qpt.qptRefs) == int(resultsExp["results"][sparqlIri]["count"]), "Expected '{}', got '{}'".format(resultsExp["results"][sparqlIri]["count"], len(qpt.qptRefs))
+                        assert len(qpt.qptRefs) == int(resultsExp[sparqlIri]["count"]), "Expected '{}', got '{}'".format(resultsExp[sparqlIri]["count"], len(qpt.qptRefs))
                         print(".", end="")
                         for pfd in qpt.pfdNodes:
-                            assert qpt.pfdNodes[pfd]['ns_iriref'] == resultsExp["results"][sparqlIri]["ns"][pfd], "Expected '{}' for prefix '{}', got '{}'".format(resultsExp["results"][sparqlIri]["ns"][pfd], pfd, qpt.pfdNodes[pfd]['ns_iriref'])
-                        assert len(qpt.pfdNodes) == len(resultsExp["results"][sparqlIri]["ns"]), "Expected {} nodes, got {}".format(len(resultsExp["results"][sparqlIri]["ns"]), len(qpt.pfdNodes))
+                            assert qpt.pfdNodes[pfd]['ns_iriref'] == resultsExp[sparqlIri]["ns"][pfd], "Expected '{}' for prefix '{}', got '{}'".format(resultsExp[sparqlIri]["ns"][pfd], pfd, qpt.pfdNodes[pfd]['ns_iriref'])
+                        assert len(qpt.pfdNodes) == len(resultsExp[sparqlIri]["ns"]), "Expected {} nodes, got {}".format(len(resultsExp[sparqlIri]["ns"]), len(qpt.pfdNodes))
                     else: 
                         # Fail scenarios
                         # PERFORM THE OPERATION UNDER TEST
                         try:
-                            _= sparqlTools.Context.QueryPatternTripleAssociation(entity_expression=entity_expr, sparql_tree=parsedQry, nsMgr=self.nsMgr)
-                            qpt.addQPTRef(srcNodes[0])
+                            _= sparqlTools.Context.QueryPatternTripleAssociation(entity=entity_expr, sparql_tree=parsedQry, nsMgr=self.nsMgr)
+                            qpt.addQPTRefs(srcNodes[0])
                         except Exception as e: assert type(e).__name__ == testCriteria["value"], "Expected exception '{}', got '{}'".format(testCriteria["value"], type(e))
                         print(".", end="")
             print(". done!")
 
-        
-    def testGetQPTRef(self):
-        assert False, "Create testcase for getQPTRef"
+
 
 
 class TestQPTripleRef(unittest.TestCase):
                                         
     def setUp(self):
-        self.testdir = './resources/sparqlQueries/'
+        self.testdir = './resources/sparqlQueries/sparqlTools/'
         filepath = self.testdir + 'manifest02.json'
         print("="*30)
         print("Test configuration from {}:".format(filepath))
@@ -362,12 +380,12 @@ class TestQPTripleRef(unittest.TestCase):
     def testInit(self):
         import os
         testModuleName = inspect.currentframe().f_code.co_name
-        tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:name"] == testModuleName]
-        print('Testcase: "{}" about {}, has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], len(tests)))
+        tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:testDef"] == testModuleName]
+        print('Testcase: "{}" about {}, module under test "{}" has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], testModuleName, len(tests)))
         for test in tests:
-            print('\tTesting system under test "{}" with {} subtests: {} ({}) ..'.format(self.testCases[test]["mf:SUT"], len(self.testCases[test]["mf:action"]["mf:data"]), self.testCases[test]["rdfs:comment"], self.testCases[test]["mf:name"]), end="")
+            print('\tTesting {}.{} ({}): '.format(self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
             # Get the test subject, i.e., the BGP element that this is about
-            bgp_type = self.testCases[test]["mf:action"]["mf:subject"]["bgp_type"]
+            testSubject = self.testCases[test]["mf:action"]["mf:subject"]
             for testData in self.testCases[test]["mf:action"]["mf:data"]:
                 if testData["rdf:type"] != "sparle_query": raise TestException("Invalid test data, expected 'sparle_query', got '{}'".format(testData["rdf:type"]))
                 file = self.testdir + testData["value"]
@@ -378,7 +396,9 @@ class TestQPTripleRef(unittest.TestCase):
                 parsedQry = parseQuery(qry)
 #                 print(parsedQry.dump())
 #                 print ("searching: {}".format(bgp_type))
-                query_nodes = parsedQry.searchElements(label = None, element_type=SPARQLParser.iri if bgp_type["rdf:type"]=="iri" else SPARQLParser.Var, value=bgp_type["value"])
+                if testSubject["bgp_referred"]["rdf:type"]=="iri": elType=SPARQLParser.iri
+                elif testSubject["bgp_referred"]["rdf:type"] in ["VAR1","VAR2"]: elType=SPARQLParser.Var
+                query_nodes = parsedQry.searchElements(label = None, element_type=elType, value=testSubject["bgp_referred"]["value"])
 #                 print("found: {}".format(len(query_nodes)))
                 assert len(query_nodes) > 0
 
@@ -391,29 +411,159 @@ class TestQPTripleRef(unittest.TestCase):
                         filename = testCriteria["value"]
 #                         print("filename:\n", filename)
                         with open(self.testdir + filename) as criteria_f:
-                            resultsExp = json.load(criteria_f)
-                        # PERFORM THE OPERATION UNDER TEST
+                            re = json.load(criteria_f)
+                            resultsExp = re["results"]
                         atom = query_nodes[0].descend()
                         if not query_nodes[0].descend().isAtom(): raise TestException("Test for class QPTripleRef should find atom, but found {}".format(query_nodes[0]))
-                        theNode = sparqlTools.Context.QueryPatternTripleAssociation.QPTripleRef(about=query_nodes[0])
+                        # PERFORM THE OPERATION UNDER TEST
+                        theNode = sparqlTools.Context.QueryPatternTripleAssociation.QPTripleRef()
+                        theNode.addReferred(referred=query_nodes[0], bgp_type=testSubject["bgp_position"]["value"])
                         # Test outcome against expected criteria
-                        assert theNode.about == atom
-                        assert str(theNode.about) == resultsExp["results"]["bindings"][0]["o"]["value"]
-                        assert type(theNode.about).__name__ == resultsExp["results"]["bindings"][0]["o"]["type"]
-                        print(".", end="")
-                        theNode.setType(self.testCases[test]["mf:action"]["mf:subject"]["bgp_value"]["value"])
-                        assert theNode.type == resultsExp["results"]["bindings"][0]["t"]["value"]
-                        assert len(theNode.associates) == int(resultsExp["results"]["bindings"][0]["l"]["value"])
-                        assert theNode.associates[theNode.type] == atom
-                        assert len(theNode.binds) == int(resultsExp["results"]["bindings"][0]["b"]["value"])
+                        assert theNode.referred == atom, "Test failure: Expected '{}', got '{}'".format(repr(atom),repr(theNode.referred))
+                        assert str(theNode.referred) == resultsExp["bindings"][0]["o"]["value"]
+                        assert type(theNode.referred).__name__ == resultsExp["bindings"][0]["o"]["type"]
+                        assert theNode.type == resultsExp["bindings"][0]["t"]["value"]
+                        assert resultsExp["bindings"][0]["t"]["value"] in theNode.associates
+                        assert len(theNode.associates) == int(resultsExp["bindings"][0]["l"]["value"])
+                        assert theNode.associates[resultsExp["bindings"][0]["t"]["value"]] == atom
+                        assert len(theNode.binds) == int(resultsExp["bindings"][0]["b"]["value"])
                         print(".", end="")
 
             print(". done!")
 
+
         
-    def testConsiderBinding(self):
-        assert False, "Create testcase for considerBinding"
-        
+
+class TestContext(unittest.TestCase):
+    '''
+    Test the creation of a complete context around one EntityExpression. A context contains:
+        entity_expr = ''    # (mediator.mediatorTools.EntityExpression) The EDOAL entity_expression, i.e., one of (Class, Property, Relation, Instance) or their combinations, this context is about;
+        parsedQuery = ''    # (parser.grammar.ParseInfo) The parsed query that is to be mediated
+        qptAssocs = []      # List of (QueryPatternTripleAssociation)s, representing the triples that are addressing the subject entity_expression
+        constraints = {}    # Dictionary, indexed by the bound variables that occur in the qptAssocs, as contextualised Filters.
+        nsMgr = None        # (namespaces.NSManager): the current nsMgr that can resolve any namespace issues of this mediator 
+    '''
+
+    def setUp(self):
+        self.testdir = './resources/sparqlQueries/sparqlTools/'
+        filepath = self.testdir + 'manifest05.json'
+        print("="*30)
+        print("Test configuration from {}:".format(filepath))
+        with open(filepath) as f:    
+            self.testCases = json.load(f)
+        ns = {'rdf': "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+              'xsd': "http://www.w3.org/2001/XMLSchema#",
+              'align':"http://knowledgeweb.semanticweb.org/heterogeneity/alignment#",
+              'edoal':'http://ns.inria.org/edoal/1.0/#',
+              'ontoA': 'http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#',
+              't'   : 'http://ts.tno.nl/mediator/test#'
+              }
+        self.nsMgr = namespaces.NSManager(ns, "http://ts.tno.nl/mediator/test#")
+    
+    def tearDown(self):
+        pass
+    
+ 
+    def testInit(self):
+        testModuleName = inspect.currentframe().f_code.co_name
+        tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:testDef"] == testModuleName]
+        print('Testcase: "{}" about {}, module under test "{}" has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], testModuleName, len(tests)))
+        for test in tests:
+            print('\tTesting {}.{} ({}): '.format(self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
+            # Create the subject
+            subject = self.testCases[test]["mf:action"]["mf:subject"][0]
+            if subject["rdf:type"] == "iri_ref":
+                srcEE = mediatorTools.EProperty(entity_iri=subject["value"], nsMgr=self.nsMgr)
+            else:
+                raise TestException("Incorrect test subject type, expected 'iri_ref', got {}".format(subject["rdf:type"]))
+            # Loop over the test data
+            for testData in self.testCases[test]["mf:action"]["mf:data"]:
+                if testData["rdf:type"] == "file": 
+                    file = self.testdir + testData["value"]
+                    with open(file) as f:
+                        testString = f.read()
+                elif testData["rdf:type"] == "string":
+                    testString = testData["value"]
+                else: raise TestException("Incorrect test data, expected 'file' or 'string', got {}".format(testData["rdf:type"]))
+                parsed_data = parseQuery(testString)
+#                 print(parsed_data.dump())
+                parsed_data.expandIris()
+                for testCriteria in [r for r in self.testCases[test]["mf:result"] if r["id"]==testData["id"]]:
+                    print(testCriteria["id"], end=" ")
+                    # Now adapt the test environment to the PASS or FAIL tests
+                    if testCriteria["rdf:type"] == "PASS":
+                        # Get the test criterion from file
+                        file = self.testdir + testCriteria["value"]
+                        with open(file) as f:
+                            testCriterion = json.load(f)
+                         
+                        # Execute the PASS tests
+                        # PERFORM THE OPERATION UNDER TEST
+                        context = sparqlTools.Context(entity_expression=srcEE, entity_type=SPARQLParser.iri, sparqlTree=parsed_data, nsMgr=self.nsMgr)
+                        # Assert its validity
+                        # 1 - Assert the triples in the Context
+                        assert context.entity_expr == srcEE, "Test failure: Expected '{}', got '{}'".format(str(srcEE),str(context.entity_expr))
+                        assert len(context.qptAssocs[srcEE.getIriRef()].qptRefs) == len(testCriterion["results"]["bindings"]), "Expected {}, got {}".format(len(testCriterion["results"]["bindings"]), len(context.qptAssocs[srcEE.getIriRef()].qptRefs))
+                        for i, qptref in enumerate(context.qptAssocs[srcEE.getIriRef()].qptRefs):
+#                             print("Triple results {}  : {}".format(i,str(qptref)))
+#                             print("  test criterion {}: {}".format(i,testCriterion["results"]["bindings"][i]))
+                            assert sparqlTools.Context.localLabels['subject'] in qptref.associates
+                            assert str(qptref.associates[sparqlTools.Context.localLabels['subject']]) == testCriterion["results"]["bindings"][i]["s"]["value"], \
+                                "expected '{}', got '{}'".format(testCriterion["results"]["bindings"][i]["s"]["value"], str(qptref.associates[sparqlTools.Context.localLabels['subject']]))
+                            assert sparqlTools.Context.localLabels['property'] in qptref.associates
+                            assert str(qptref.associates[sparqlTools.Context.localLabels['property']]) == testCriterion["results"]["bindings"][i]["p"]["value"], \
+                                "expected '{}', got '{}'".format(testCriterion["results"]["bindings"][i]["p"]["value"], str(qptref.associates[sparqlTools.Context.localLabels['property']]))
+                            assert sparqlTools.Context.localLabels['object'] in qptref.associates
+                            assert str(qptref.associates[sparqlTools.Context.localLabels['object']]) == testCriterion["results"]["bindings"][i]["o"]["value"], \
+                                "expected '{}', got '{}'".format(testCriterion["results"]["bindings"][i]["o"]["value"], str(qptref.associates[sparqlTools.Context.localLabels['object']]))
+                        # 2 - Assert the constraints in the Context
+                        for var, varConstraints in context.constraints.items():
+#                             print("Contraints result ['{}']: {}".format(var, varConstraints))
+                            assert var in testCriterion["results"]["constraints"], "'{}' not in '{}'".format(var, (key for key in testCriterion["results"]["constraints"]))
+#                             print ("  test criterion ['{}']: {}".format(var,testCriterion["results"]["constraints"][var]))
+                            for varConstraint in varConstraints:
+                                if len(testCriterion["results"]["constraints"][var]) > 0 or len(varConstraint._valueLogicExprList) > 0:
+                                    assert varConstraint.getBoundVar() == var
+                                    assert len(varConstraint.getValueLogicExpressions()) == len(testCriterion["results"]["constraints"][var])
+                                    for vle in varConstraint.getValueLogicExpressions():
+                                        vleExpanded = {
+                                            "varRef"     : {"type": type(vle["varRef"]).__name__, "value": str(vle["varRef"]) } ,
+                                            "comparator" : {"type": type(vle["comparator"]).__name__, "value": str(vle["comparator"]) } ,
+                                            "restriction": {"type": type(vle["restriction"]).__name__, "value": str(vle["restriction"]) } 
+                                        }
+                                        assert vleExpanded in testCriterion["results"]["constraints"][var], "Test failed: created a value logic expression that was not expected: \n{}".format(vle)
+
+                    elif testCriteria["rdf:type"] == "FAIL": 
+                        # FAIL SCENARIONS
+                        # Fail scenarios come in 2 variations:
+                        # 1 - Throwing an error. For this kind it is only asserted that the correct error has been thrown
+                        #TODO: extend the verification to also assert on the text of the  thrown error.
+                        # 2 - Throwing a warning only, but continuing the process. Now the results of the call are asserted, similarly  to a PASS test. 
+                        # Get the test criterion, i.e., the exception name that should be thrown
+                        # PERFORM THE OPERATION UNDER TEST
+                        if testCriteria["value"]["rdf:type"] == "error":
+                            try:
+                                # Do the (failing) test call, and assert the correct exception is thrown
+                                context = sparqlTools.Context(entity_expression=srcEE, entity_type=SPARQLParser.iri, sparqlTree=parsed_data, nsMgr=self.nsMgr)
+                                raise TestException("{}: failed the test, expected call to raise '{}' but it survived".format(testModuleName, testCriteria["value"]["value"]))
+                            except Exception as e: assert type(e).__name__ == testCriteria["value"]["value"], "Expected exception '{}', got '{}'".format(testCriteria["value"]["value"], type(e))
+                        elif testCriteria["value"]["rdf:type"] == "file":
+                            file = self.testdir + testCriteria["value"]["value"]
+                            print("fail file: {}".format(file))
+                            with open(file) as f:
+                                testCriterion = json.load(f)
+                            # Do the (failing) test call, and assert the correct exception is thrown
+                            context = sparqlTools.Context(entity_expression=srcEE, entity_type=SPARQLParser.iri, sparqlTree=parsed_data, nsMgr=self.nsMgr)
+                            for i, binding in enumerate(testCriterion["results"]["bindings"]):
+                                assert context.entity_expr == srcEE, "Test failure: expected '{}', got '{}'.".format(str(srcEE),str(context.entity_expr))
+                                assert context.qptAssocs == binding["assocs"], "Test failure: expected '{}', got '{}'.".format(binding["assocs"], context.qptAssocs)
+                                assert context.constraints == binding["constraints"], "Test failure: expected '{}', got '{}'.".format(binding["constraints"], context.constraints)
+                        else: raise TestException("Incorrect test criterion, expected 'File' or 'error', got {}".format(testCriteria["value"]["rdf:type"]))
+                    else: raise TestException("Incorrect test criterion, expected 'PASS' or 'FAIL', got {}".format(testData["rdf:type"]))
+                    print(".", end="")
+            print(". done!")
+
+
 
 class TestSparqlQueryResultSet(unittest.TestCase):
                                         

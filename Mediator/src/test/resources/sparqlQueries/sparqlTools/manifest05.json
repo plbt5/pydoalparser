@@ -1,0 +1,62 @@
+{
+	"manifest": {
+		"mf:name": "manifest05" ,
+		"mf:file": "manifest05.json" ,
+		"rdfs:comment": "Determine Context in SPARQL query (SELECT and ASK)"
+	} ,
+	"mf:entries": [ "test_1", "test_2" ],
+	"test_1": {
+		"rdf:type": 	"testType02" ,
+		"mf:testDef":	"testInit" ,
+		"mf:SUT":		"__init__" ,
+		"mf:class":		"Context" ,
+		"rdfs:comment":	"SELECT query, more Iri's, the test iri on {s,p,o}, with and without ';', incl. FILTER" ,
+		"mf:action": {
+			"mf:data" : [
+				{ "rdf:type" : "file", "value" : "filterPass1.rq" , "id" : "1" },
+				{ "rdf:type" : "file", "value" : "filterPass2.rq" , "id" : "2" },
+				{ "rdf:type" : "file", "value" : "filterPass3.rq" , "id" : "3" },
+				{ "rdf:type" : "file", "value" : "filterFail1.rq" , "id" : "4" },
+				{ "rdf:type" : "file", "value" : "filterFail2.rq" , "id" : "5" }
+			] ,
+			"mf:subject": [
+				{ "rdf:type" : "iri_ref" , "value" : "ontoA:hasTemp"}
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "filterPass1Result.srj", "id" : "1" },
+			{ "rdf:type": "PASS", "value": "filterPass3Result.srj", "id" : "2" },
+			{ "rdf:type": "PASS", "value": "filterPass3Result.srj", "id" : "3" },
+			{ "rdf:type": "FAIL", "value": { "rdf:type": "file", "value": "filterFail1Result.srj" }, "id" : "4" },
+			{ "rdf:type": "FAIL", "value": { "rdf:type": "file", "value": "filterFail1Result.srj"} , "id" : "5" } 
+		] 
+	},
+	"test_2": {
+		"rdf:type": 	"testType02" ,
+		"mf:testDef":	"testInit" ,
+		"mf:SUT":		"__init__" ,
+		"mf:class":		"Context" ,
+		"rdfs:comment":	"ASK various contexts" ,
+		"mf:action": {
+			"mf:data" : [
+				{ "rdf:type" : "file", "value" : "AskQueryPass01.rq" , "id" : "1" },
+				{ "rdf:type" : "file", "value" : "AskQueryPass02.rq" , "id" : "2" },
+				{ "rdf:type" : "file", "value" : "AskQueryPass03.rq" , "id" : "3" },
+				{ "rdf:type" : "file", "value" : "AskQueryPass01NoFilter.rq" , "id" : "4" },
+				{ "rdf:type" : "file", "value" : "AskQueryFail01.rq" , "id" : "5" },
+				{ "rdf:type" : "file", "value" : "AskQueryFail02.rq" , "id" : "6" }
+			] ,
+			"mf:subject": [
+				{ "rdf:type" : "iri_ref" , "value" : "ontoA:hasTemp"}
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "AskQueryPass01result.srj", "id" : "1" },
+			{ "rdf:type": "PASS", "value": "AskQueryPass01result.srj", "id" : "2" },
+			{ "rdf:type": "PASS", "value": "AskQueryPass01result.srj", "id" : "3" },
+			{ "rdf:type": "PASS", "value": "AskQueryPass01NoFilterResult.srj", "id" : "4" },
+			{ "rdf:type": "FAIL", "value": { "rdf:type": "file", "value": "filterFail1Result.srj" }, "id" : "5" },
+			{ "rdf:type": "FAIL", "value": { "rdf:type": "file", "value": "filterFail1Result.srj"} , "id" : "6" }
+		] 
+	}
+}

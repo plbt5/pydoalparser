@@ -15,23 +15,28 @@
 			},
 			"mf:data" : [ 
 				{	"id" : "1",
-					"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translate01.rq" }, 
+					"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translateSelect01.rq" }, 
 					"source_onto":	{ "rdf:type" : "iri" , "value" : "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#>" }
 				}, 
 				{	"id" : "2",
-					"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translate02.rq" }, 
+					"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translateSelect02.rq" }, 
 					"source_onto":	{ "rdf:type" : "iri" , "value" : "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#>" }
 				},
-				{	"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translate03.rq" }, 
+				{	"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translateSelect03.rq" }, 
 					"source_onto":	{ "rdf:type" : "iri" , "value" : "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1C#>" },
 					"id" : "3" 
+				},
+				{	"sparql_rq":	{ "rdf:type" : "rq" , "value" : "translateAsk01.rq" }, 
+					"source_onto":	{ "rdf:type" : "iri" , "value" : "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#>" },
+					"id" : "4" 
 				}
 			]
 		},
 		"mf:result": [
-			{ "rdf:type": "PASS", "value": "translate01result.rq" , "id" : "1" },
-			{ "rdf:type": "PASS", "value": "translate02result.rq" , "id" : "2" },
-			{ "rdf:type": "FAIL", "value": "UserWarning" , "id" : "3" }
+			{ "rdf:type": "PASS", "value": "translateSelect01result.rq" , "id" : "1" },
+			{ "rdf:type": "PASS", "value": "translateSelect02result.rq" , "id" : "2" },
+			{ "rdf:type": "FAIL", "value": "UserWarning" , "id" : "3" },
+			{ "rdf:type": "PASS", "value": "translateAsk01result.rq" , "id" : "4" }
 		] 
 	}
 }

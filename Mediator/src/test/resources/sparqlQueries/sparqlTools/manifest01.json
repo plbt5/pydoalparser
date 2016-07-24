@@ -44,7 +44,8 @@
 			"mf:data" : [
 				{ "rdf:type" : "sparle_query", "value" : "filterPass2.rq" , "id" : "1" },
 				{ "rdf:type" : "sparle_query", "value" : "filterFail1.rq" , "id" : "2" },
-				{ "rdf:type" : "sparle_query", "value" : "filterFail2.rq" , "id" : "3" }
+				{ "rdf:type" : "sparle_query", "value" : "filterFail2.rq" , "id" : "3" },
+				{ "rdf:type" : "sparle_query", "value" : "filterPass3.rq" , "id" : "4" }
 			] ,
 			"mf:subject": [
 				{ "rdf:type" : "sparql_var" , "value" : "?t" },
@@ -54,7 +55,8 @@
 		"mf:result": [
 			{ "rdf:type": "PASS", "value": "filter-result-pass-03.srj", "id" : "1" },
 			{ "rdf:type": "FAIL", "value": "NotImplementedError", "id" : "2" },
-			{ "rdf:type": "FAIL", "value": "NotImplementedError", "id" : "3" }
+			{ "rdf:type": "FAIL", "value": "NotImplementedError", "id" : "3" },
+			{ "rdf:type": "PASS", "value": "filter-result-pass-03.srj", "id" : "4" }
 		] 
 	}
 }

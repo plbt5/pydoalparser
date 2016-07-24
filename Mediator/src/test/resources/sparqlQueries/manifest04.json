@@ -4,7 +4,7 @@
 		"mf:file": "manifest04.json" ,
 		"rdfs:comment": "Sparql Query result set validation"
 	} ,
-	"mf:entries": [ "test_1" , "test_2", "test_3"],
+	"mf:entries": [ "test_1" , "test_2"],
 	"test_1": {
 		"rdf:type": 	"testType01" ,
 		"mf:SUT":		"testInit" ,
@@ -16,13 +16,13 @@
 				{ "rdf:type" : "file", "value" : "sparqlTools/selectQueryResultSet01.srj", "id" : "1" },
 				{ "rdf:type" : "string", "value" : "appelepap", "id" : "2" },
 				{ "rdf:type" : "dict", "value" : { "head" : { } , "boolean" : true }, "id" : "3" },
-				{ "rdf:type" : "file", "value" : "sparqlTools/AskQueryResultSet01.srj", "id" : "3" }
+				{ "rdf:type" : "file", "value" : "sparqlTools/AskQueryResultSetTrue.srj", "id" : "3" }
 			]
 		},
 		"mf:result": [
 			{ "rdf:type": "PASS", "value": "sparqlTools/passSelectQueryResultSet01.srj" , "id" : "1" },
 			{ "rdf:type": "FAIL", "value": "NotImplementedError" , "id" : "2" },
-			{ "rdf:type": "PASS", "value": "sparqlTools/passAskQueryResultSet01.srj" , "id" : "3" }
+			{ "rdf:type": "PASS", "value": "sparqlTools/passAskQueryResultSetTrue.srj" , "id" : "3" }
 		] 
 	} ,
 	"test_2": {
@@ -34,33 +34,11 @@
 			"mf:subject": { "rdf:type" : "sparql_var" , "value" : "?t" }, 
 			"mf:data" : [
 				{ "rdf:type" : "file", "value" : "sparqlTools/selectQueryResultSet01.srx", "id" : "1" },
-				{ "rdf:type" : "file", "value" : "sparqlTools/AskQueryResultSet01.srx", "id" : "1" }
+				{ "rdf:type" : "file", "value" : "sparqlTools/AskQueryResultSetTrue.srx", "id" : "1" }
 			]
 		},
 		"mf:result": [
 			{ "rdf:type": "FAIL", "value": "NotImplementedError" , "id" : "1" }
 		] 
-	} ,
-	"test_3": {
-		"rdf:type": 	"testType01" ,
-		"mf:SUT":		"addAllVarConstraints" ,
-		"mf:name":		"testVarConstraint" ,
-		"rdfs:comment":	"Assess a variety of valid and invalid filter clauses." ,
-		"mf:action": {
-			"mf:data" : [
-				{ "rdf:type" : "sparle_query", "value" : "filterPass2.rq" , "id" : "1" },
-				{ "rdf:type" : "sparle_query", "value" : "filterFail1.rq" , "id" : "2" },
-				{ "rdf:type" : "sparle_query", "value" : "filterFail2.rq" , "id" : "3" }
-			] ,
-			"mf:subject": [
-				{ "rdf:type" : "sparql_var" , "value" : "?t" },
-				{ "rdf:type" : "iri_ref" , "value" : "ontoA:hasTemp"}
-			]
-		},
-		"mf:result": [
-			{ "rdf:type": "PASS", "value": "filter-result-pass-03.srj", "id" : "1" },
-			{ "rdf:type": "FAIL", "value": "NotImplementedError", "id" : "2" },
-			{ "rdf:type": "FAIL", "value": "NotImplementedError", "id" : "3" }
-		] 
-	}
+	} 
 }

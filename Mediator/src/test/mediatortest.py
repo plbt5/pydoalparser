@@ -85,7 +85,7 @@ class TestMediator(unittest.TestCase):
     def testTranslate(self):
         '''
         Test that:
-        1 - a mediator can successfully translate various relevant queries
+        1 - a mediator can successfully translate various relevant queries (SELECT and ASK)
         2 - a mediator ignores queries with terms that are not mentioned in the alignment
         '''
         testModuleName = inspect.currentframe().f_code.co_name
@@ -109,6 +109,7 @@ class TestMediator(unittest.TestCase):
                 print("\ttest data: {} instantiates from {}".format(sparqlFilename, srcOntoIri))
                 with open(self.testdir + sparqlFilename) as f:
                     sparl_string = f.read()
+                print("\ttest query: \n{}".format(sparl_string))
                 # Loop over the expected results
                 for testCriteria in [r for r in self.testCases[test]["mf:result"] if r["id"]==testData["id"]]:
                     # Now the test environment is complete, hence perform the PASS and FAIL tests
@@ -121,7 +122,7 @@ class TestMediator(unittest.TestCase):
                         result = mediator.translate(data = sparl_string, source_onto_ref = srcOntoIri)
                         print("\tTranslation result: {}\n".format(str(result)))
                         # Verify the result
-                        assert str(result) == results_exp
+                        assert str(result) == results_exp, "Expected: \n{}\nGot:\n{}".format(results_exp, str(result))
                     elif testCriteria["rdf:type"] == "FAIL":
                         # Execute the FAIL tests, e.g., get the expected results to compare with
                         rq = parseQuery(sparl_string)

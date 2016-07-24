@@ -1,0 +1,19 @@
+{
+	"head": {
+		"vars": [ "s", "p", "o" ]
+	} ,
+	"results": {
+		"bindings": [
+			{
+				"s": { "type": "VAR1", "value": "?p" } ,
+				"p": { "type": "IRI", "value": "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#hasTemp>" } ,
+				"o": { "type": "VAR1", "value": "?t" }
+			}
+		],
+		"constraints" : {
+			"?t" : [],
+			"?r" : [],
+			"?p" : []
+		}
+	}
+}
