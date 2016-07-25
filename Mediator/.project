@@ -3,7 +3,6 @@
 	<name>Mediator</name>
 	<comment></comment>
 	<projects>
-		<project>EDOALParser</project>
 		<project>Parser</project>
 	</projects>
 	<buildSpec>

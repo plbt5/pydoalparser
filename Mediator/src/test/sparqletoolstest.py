@@ -24,11 +24,12 @@ from itertools import zip_longest
 #             self.testCases = json.load(f)
 # 
 #     def testSomeModuleName(self):
+#         # According to test_type04 in manifest
 #         testModuleName = inspect.currentframe().f_code.co_name
 #         tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:testDef"] == testModuleName]
 #         print('Testcase: "{}" about {}, module under test "{}" has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], testModuleName, len(tests)))
 #         for test in tests:
-#             print('\tTesting {}.{} ({}): '.format(self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
+#             print('\t* {}: Testing {}.{} ({}): '.format(test, self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
 #             for testData in self.testCases[test]["mf:action"]["mf:data"]:
 #                 if testData["rdf:type"] == "file": 
 #                     file = self.testdir + testData["value"]
@@ -278,13 +279,13 @@ class TestQueryPatternTripleAssociation(unittest.TestCase):
         # 4 - search for proper node in sparql tree
         
         for test in tests:
-            print('\tTesting {}.{} ({}): '.format(self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
+            print('\t* {}: Testing {}.{} ({}): '.format(test, self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
             if list(self.testCases[test]["mf:action"]["mf:subject"])[0] != "sparle_query": raise TestException("Invalid test data, expected 'sparle_query', got '{}'".format(list(self.testCases[test]["mf:action"]["mf:subject"])[0]))
             file = self.testdir + self.testCases[test]["mf:action"]["mf:subject"]["sparle_query"]["value"]
             if not os.path.exists(file): raise TestException("Incorrect test data, cannot find file {}".format(file))
             with open(file) as f:
                 parsedQry = parseQuery(f.read())
-            print(parsedQry.dump())
+#             print(parsedQry.dump())
             # Expand the query node to test
             parsedQry.expandIris()
 #             print(parsedQry.dump())
@@ -345,8 +346,9 @@ class TestQueryPatternTripleAssociation(unittest.TestCase):
                         # Fail scenarios
                         # PERFORM THE OPERATION UNDER TEST
                         try:
-                            _= sparqlTools.Context.QueryPatternTripleAssociation(entity=entity_expr, sparql_tree=parsedQry, nsMgr=self.nsMgr)
+                            qpt = sparqlTools.Context.QueryPatternTripleAssociation(entity=entity_expr, sparql_tree=parsedQry, nsMgr=self.nsMgr)
                             qpt.addQPTRefs(srcNodes[0])
+                            raise TestException("{}: failed the test, expected call to raise '{}' but it survived".format(testModuleName, testCriteria["value"]))
                         except Exception as e: assert type(e).__name__ == testCriteria["value"], "Expected exception '{}', got '{}'".format(testCriteria["value"], type(e))
                         print(".", end="")
             print(". done!")
@@ -383,7 +385,7 @@ class TestQPTripleRef(unittest.TestCase):
         tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:testDef"] == testModuleName]
         print('Testcase: "{}" about {}, module under test "{}" has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], testModuleName, len(tests)))
         for test in tests:
-            print('\tTesting {}.{} ({}): '.format(self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
+            print('\t* {}: Testing {}.{} ({}): '.format(test, self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
             # Get the test subject, i.e., the BGP element that this is about
             testSubject = self.testCases[test]["mf:action"]["mf:subject"]
             for testData in self.testCases[test]["mf:action"]["mf:data"]:
@@ -469,7 +471,7 @@ class TestContext(unittest.TestCase):
         tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:testDef"] == testModuleName]
         print('Testcase: "{}" about {}, module under test "{}" has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], testModuleName, len(tests)))
         for test in tests:
-            print('\tTesting {}.{} ({}): '.format(self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
+            print('\t* {}: Testing {}.{} ({}): '.format(test, self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
             # Create the subject
             subject = self.testCases[test]["mf:action"]["mf:subject"][0]
             if subject["rdf:type"] == "iri_ref":
@@ -540,26 +542,29 @@ class TestContext(unittest.TestCase):
                         #TODO: extend the verification to also assert on the text of the  thrown error.
                         # 2 - Throwing a warning only, but continuing the process. Now the results of the call are asserted, similarly  to a PASS test. 
                         # Get the test criterion, i.e., the exception name that should be thrown
-                        # PERFORM THE OPERATION UNDER TEST
-                        if testCriteria["value"]["rdf:type"] == "error":
-                            try:
+                        # PERFORM THE OPERATION UNDER TEST 
+                        
+                        # But, first check the test type, in order to know how to interpret the test result.
+                        if self.testCases[test]["rdf:type"] == "testType02":
+                            if testCriteria["value"]["rdf:type"] == "error":
+                                try:
+                                    # Do the (failing) test call, and assert the correct exception is thrown
+                                    context = sparqlTools.Context(entity_expression=srcEE, entity_type=SPARQLParser.iri, sparqlTree=parsed_data, nsMgr=self.nsMgr)
+                                    raise TestException("{}: failed the test, expected call to raise '{}' but it survived".format(testModuleName, testCriteria["value"]["value"]))
+                                except Exception as e: assert type(e).__name__ == testCriteria["value"]["value"], "Expected exception '{}', got '{}'".format(testCriteria["value"]["value"], type(e))
+                            elif testCriteria["value"]["rdf:type"] == "file":
+                                file = self.testdir + testCriteria["value"]["value"]
+                                with open(file) as f:
+                                    testCriterion = json.load(f)
                                 # Do the (failing) test call, and assert the correct exception is thrown
                                 context = sparqlTools.Context(entity_expression=srcEE, entity_type=SPARQLParser.iri, sparqlTree=parsed_data, nsMgr=self.nsMgr)
-                                raise TestException("{}: failed the test, expected call to raise '{}' but it survived".format(testModuleName, testCriteria["value"]["value"]))
-                            except Exception as e: assert type(e).__name__ == testCriteria["value"]["value"], "Expected exception '{}', got '{}'".format(testCriteria["value"]["value"], type(e))
-                        elif testCriteria["value"]["rdf:type"] == "file":
-                            file = self.testdir + testCriteria["value"]["value"]
-                            print("fail file: {}".format(file))
-                            with open(file) as f:
-                                testCriterion = json.load(f)
-                            # Do the (failing) test call, and assert the correct exception is thrown
-                            context = sparqlTools.Context(entity_expression=srcEE, entity_type=SPARQLParser.iri, sparqlTree=parsed_data, nsMgr=self.nsMgr)
-                            for i, binding in enumerate(testCriterion["results"]["bindings"]):
-                                assert context.entity_expr == srcEE, "Test failure: expected '{}', got '{}'.".format(str(srcEE),str(context.entity_expr))
-                                assert context.qptAssocs == binding["assocs"], "Test failure: expected '{}', got '{}'.".format(binding["assocs"], context.qptAssocs)
-                                assert context.constraints == binding["constraints"], "Test failure: expected '{}', got '{}'.".format(binding["constraints"], context.constraints)
-                        else: raise TestException("Incorrect test criterion, expected 'File' or 'error', got {}".format(testCriteria["value"]["rdf:type"]))
-                    else: raise TestException("Incorrect test criterion, expected 'PASS' or 'FAIL', got {}".format(testData["rdf:type"]))
+                                for i, binding in enumerate(testCriterion["results"]["bindings"]):
+                                    assert context.entity_expr == srcEE, "Test failure: expected '{}', got '{}'.".format(str(srcEE),str(context.entity_expr))
+                                    assert context.qptAssocs == binding["assocs"], "Test failure: expected '{}', got '{}'.".format(binding["assocs"], context.qptAssocs)
+                                    assert context.constraints == binding["constraints"], "Test failure: expected '{}', got '{}'.".format(binding["constraints"], context.constraints)
+                            else: raise TestException("Incorrect test criterion, expected 'File' or 'error', got {}".format(testCriteria["value"]["rdf:type"]))
+                        else: raise TestException("Incorrect test type, expected 'testType02', got {}".format(testCriteria["value"]["rdf:type"]))
+                    else: raise TestException("Incorrect test criterion, expected 'PASS' or 'FAIL', got {}".format(testCriteria["value"]["rdf:type"]))
                     print(".", end="")
             print(". done!")
 
@@ -580,12 +585,13 @@ class TestSparqlQueryResultSet(unittest.TestCase):
         pass
 
     def testInit(self):
-        
+  
         testModuleName = inspect.currentframe().f_code.co_name
-        tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:SUT"] == testModuleName]
+        tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:testDef"] == testModuleName]
         print('Testcase: "{}" about {}, module under test "{}" has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], testModuleName, len(tests)))
         for test in tests:
-            print('\tTesting {} ({}) ..'.format(self.testCases[test]["rdfs:comment"], self.testCases[test]["mf:name"]), end="")
+            print('\t* {}: Testing {}.{} ({}): '.format(test, self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
+
             for testData in self.testCases[test]["mf:action"]["mf:data"]:
                 if testData["rdf:type"] == "file": 
                     file = self.testdir + testData["value"]
@@ -605,7 +611,7 @@ class TestSparqlQueryResultSet(unittest.TestCase):
                         
                         # Execute the PASS tests
                         # PERFORM THE OPERATION UNDER TEST
-                        resultSet = sparqlTools.sparqlQueryResultSet(testString)
+                        resultSet = sparqlTools.SparqlQueryResultSet(testString)
                         # Assert its validity
                         assert resultSet.qType == testCriterion["qType"], "Expected '{}', got '{}'".format(testCriterion["qType"], resultSet.qType)
                         if testCriterion["qType"] == 'SELECT':
@@ -618,12 +624,32 @@ class TestSparqlQueryResultSet(unittest.TestCase):
                         # Fail scenarios
                         # Get the test criterion, i.e., the exception name that should be thrown
                         # PERFORM THE OPERATION UNDER TEST
-                        try:
-                            # Do the (failing) test call, and assert the correct exception is thrown
-                            _ = sparqlTools.sparqlQueryResultSet(testString)
-                            raise TestException("{}: failed the test, expected call to FAIL but it survived".format(testModuleName))
-                        except Exception as e: assert type(e).__name__ == testCriteria["value"], "Expected exception '{}', got '{}'".format(testCriteria["value"], type(e))
-                    else: raise TestException("Incorrect test criterion, expected 'PASS' or 'FAIL', got {}".format(testData["rdf:type"]))
+                        
+                        # But, first check the test type, in order to know how to interpret the test result.
+                        if self.testCases[test]["rdf:type"] == "testType01":
+                            try:
+                                # Do the (failing) test call, and assert the correct exception is thrown
+                                _ = sparqlTools.SparqlQueryResultSet(testString)
+                                raise TestException("{}: failed the test, expected call to FAIL but it survived".format(testModuleName))
+                            except Exception as e: assert type(e).__name__ == testCriteria["value"], "Expected exception '{}', got '{}'".format(testCriteria["value"], type(e))
+                        elif self.testCases[test]["rdf:type"] == "testType02":
+                            if testCriteria["value"]["rdf:type"] == "error":
+                                try:
+                                    _ = sparqlTools.SparqlQueryResultSet(testString)
+                                    raise TestException("{}: Test failure, expected call to raise '{}' but it survived".format(testModuleName, testCriteria["value"]["value"]))
+                                except Exception as e: assert type(e).__name__ == testCriteria["value"]["value"], "Expected exception '{}', got '{}'".format(testCriteria["value"]["value"], type(e))
+                            elif testCriteria["value"]["rdf:type"] == "file":
+                                file = self.testdir + testCriteria["value"]["value"]
+                                with open(file) as f:
+                                    testCriterion = json.load(f)
+                                # Do the (failing) test call, and assert the correct exception is thrown
+                                sqrs = sparqlTools.SparqlQueryResultSet(testString)
+                                for i, binding in enumerate(testCriterion["results"]["bindings"]):
+                                    # Do your assertions
+                                    pass
+                            else: raise TestException("Incorrect test criterion, expected 'File' or 'error', got {}".format(testCriteria["value"]["rdf:type"]))
+                        else: raise TestException("Incorrect test type, expected 'testType01', got '{}'".format(self.testCases[test]["rdf:type"]))
+                    else: raise TestException("Incorrect test criterion, expected 'PASS' or 'FAIL', got '{}'".format(testData["rdf:type"]))
                     print(".", end="")
             print(". done!")
          

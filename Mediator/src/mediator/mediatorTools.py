@@ -56,6 +56,7 @@ class EntityExpression():
     def isAtomicEntity(self):
         return isinstance(self, _Entity)
     
+    
 #     def isEntityExpression(self):
 #         return isinstance(self, _EntityConstruction)
 
@@ -544,7 +545,7 @@ class Correspondence():
         Translate the data according to the alignment from the Correspondence Class
         - parsed_data (ParserTools.base.ParseStruct): the data to be translated; this data can represent one out of the following
             1: a sparql query (one of: SELECT, ASK, UPDATE, DESCRIBE)
-            2: a sparql result set
+            2: a sparql result set (refer to https://www.w3.org/TR/sparql11-results-json/#select-encode-terms for decoding the values of the variable bindings.)
             3: an RDF triple or RDF graph
         - srcEE, tgtEE (_Entity or _EntityConstruction): translation direction; the data represents an instance of the srcEE and needs to be translated into an instance of the tgtEE
         returns: (currently always) true; the translation is in place, meaning that the input parsed_data has been modified to match the translation
@@ -576,25 +577,25 @@ class Correspondence():
         tgt_pf_expansion = '<' + tgt_pf_expansion + '>'
         
         # Translate ee1 into ee2. 
-        # 1 - Loop over the Query Patterns of the query, and find the concept that it addresses. Establish which of the correspondences apply to that concept.
-        #     The source entity expression can occur in multiple BGP's, and each qpNode represents a distinct BGP
-        #     Besides the iri to translate, also translate the namespace of that iri
-        for qptAssoc in context.qptAssocs:
-            # Translate the iri
-            for qpn in qptAssoc.qptRefs:
-                qpn.about.updateWith(tgt)
-            # Translate the namespace that this iri lives in
-            for epf in qptAssoc.pfdNodes:
-                #TODO: translating a [PrefixDecl] for a prefix, is only valid if ALL iri's that are referenced
-                # by that namespace, are translated. This is not guaranteed a priori. Hence, the code below might break the validity of the query
+        # 1 - Determine the query context that the source entity refers. 
+        assert srcEE.getIriRef() in context.qptAssocs, "Correspondence:translate(): entity '{}' has no association in Query".format(srcEE.getIriRef())
+        # Translate the iri
+        qptAssoc = context.qptAssocs[srcEE.getIriRef()]
+        qptAssoc.translateTo(tgtEE)
+                
+        # Translate the namespace that this iri lives in
+        # IS THIS STILL NECESSARY?? PREFIX EXPANSION HAS BEEN APPLIED!
+        for epf in qptAssoc.pfdNodes:
+            #TODO: translating a [PrefixDecl] for a prefix, is only valid if ALL iri's that are referenced
+            # by that namespace, are translated. This is not guaranteed a priori. Hence, the code below might break the validity of the query
 #                 print("Correspondence.translate(): Updating [PNAME_NS]: {}={} with {}={}".format(epf,qptAssoc.pfdNodes[epf]['ns_iriref'],tgt_prefix,tgt_pf_expansion))
-                if str(qptAssoc.pfdNodes[epf]['node'].namespace) == qptAssoc.pfdNodes[epf]['ns_iriref'] and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == epf:
-                    qptAssoc.pfdNodes[epf]['node'].prefix.updateWith(tgt_prefix)
-                    qptAssoc.pfdNodes[epf]['node'].namespace.updateWith(tgt_pf_expansion)
-                elif str(qptAssoc.pfdNodes[epf]['node'].namespace)[1:-1] == tgt_pf_expansion and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == tgt_prefix:
-                    # Already updated this [PNAME_NS] by an earlier entity_expression in the same namespace
-                    pass
-                else: raise KeyError("Correspondence.translate(): Expected ({},{}), got ({},{})".format(epf, qptAssoc.pfdNodes[epf]['ns_iriref'], qptAssoc.pfdNodes[epf]['node'].prefix, qptAssoc.pfdNodes[epf]['node'].namespace))
+            if str(qptAssoc.pfdNodes[epf]['node'].namespace) == qptAssoc.pfdNodes[epf]['ns_iriref'] and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == epf:
+                qptAssoc.pfdNodes[epf]['node'].prefix.updateWith(tgt_prefix)
+                qptAssoc.pfdNodes[epf]['node'].namespace.updateWith(tgt_pf_expansion)
+            elif str(qptAssoc.pfdNodes[epf]['node'].namespace)[1:-1] == tgt_pf_expansion and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == tgt_prefix:
+                # Already updated this [PNAME_NS] by an earlier entity_expression in the same namespace
+                pass
+            else: raise KeyError("Correspondence.translate(): Expected ({},{}), got ({},{})".format(epf, qptAssoc.pfdNodes[epf]['ns_iriref'], qptAssoc.pfdNodes[epf]['node'].prefix, qptAssoc.pfdNodes[epf]['node'].namespace))
         
         # 2 - Then transform the constraints from the Query Modification part of the query.
         #     The _ee1 can be bound to more than one variable, and each variable can have more constraints.
@@ -622,7 +623,7 @@ class Correspondence():
                         for operand in tf.getOperands():
                             if operand.getIriRef() == srcIriRef: 
                                 result = tf.transform(entityIriRef = srcIriRef, value_logic_expr = vle)
-                                print("Correspondence.translate(): Updating restriction in constraint {} into '{}'".format(vc, str(result)))
+#                                 print("Correspondence.translate(): Updating restriction in constraint {} into '{}'".format(vc, str(result)))
                                 vle['restriction'].updateWith(str(result))
         
 #         print("Translation result: ", end="")

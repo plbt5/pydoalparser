@@ -8,6 +8,7 @@ Created on 26 feb. 2016
 from parsertools.parsers.sparqlparser import parseQuery
 from utilities import namespaces
 from mediator import EDOALparser
+from mediator.sparqlTools import SparqlQueryResultSet
 from builtins import str
 import warnings
 import os.path
@@ -96,7 +97,7 @@ class Mediator(object):
         - source: reference to the ontology that the data originates from, in order to indicate the direction of the translation
         returns: the result of the translation, currently of type (parsertools.base.ParseStruct)
         
-        As of this moment, only a SPARQL SELECT is supported
+        As of this moment, only SPARQL SELECT and ASK queries are supported
         '''
         # Process:
         # 1 - parse sparlq data
@@ -104,51 +105,62 @@ class Mediator(object):
         #     (this also establishes the translation direction)
         # 3 - On a match: loop over all correspondences in an alignment in order to ...
         # 4 - ... let the correspondence determine if and how to translate the data
-        #TODO: optimise the matching between on step 4
 
-        assert data != None and isinstance(data, str) and data != '' 
-        assert source_onto_ref, "Indication of translation direction is required by means of specifying the ontology iri from which the data originates"
-        # All iri's are represented with embraced '< >' pair. Make sure that this is the case
-        if source_onto_ref[0] != '<' and source_onto_ref[-1] != '>':
-            source_onto_ref = '<' + source_onto_ref + '>'
-
-        # 1a - Parse the sparql data into graph (tree)
-        rq = parseQuery(data)
-        if rq == []:
-            raise RuntimeError("Mediator.translate(): Couldn't parse query:\n{}".format(data))
-#         self.nsMgr.bindPrefixesFrom(rq)
-#         print(rq.dump())
-        # 1b - Base the comparison between querygraph and aligment on full iri's: Thus expand the iri's in the querygraph. 
-        rq.expandIris()
-#         print (rq.dump())
-
-        # 2a - Loop over all alignments
-        for name, align in self.alignments.items():
-            # 2b - Determine what is the source and what the target entity expression for this data, i.e., determine direction for translation
-#             print("Direction specified by source '{}'\nAlignment specifies '{}'".format(source_onto_ref, str(align.getSrcOnto()))) 
-            if source_onto_ref == str(align.getSrcOnto()):
-                # 3 - This alignment addresses this data for a forward translation, hence loop over all correspondences
-                for corr in align.getCorrespondences():
-                    srcEE = corr.getEE1()
-                    tgtEE = corr.getEE2()
-#                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
-                    # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
-                    _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
-                    #TODO: use result of the translation in the semantic protocol
-            elif source_onto_ref == str(align.getTgtOnto()):
-                # 3 - This alignment addresses this data for a backwards translation, hence loop over all correspondences
-                for corr in align.getCorrespondences():
-                    srcEE = corr.getEE2()
-                    tgtEE = corr.getEE1()
-#                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
-                    # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
-                    _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
-                    #TODO: use result of the translation in the semantic protocol
-            else:
-                warnings.warn("Mediator.translate(): Alignment '{}' cannot translate data that originate from ontology {}".format(name, source_onto_ref), category=UserWarning)
+        assert data, "Mediator.translate(): Fatal - data required"
+        assert source_onto_ref, "Mediator.translate(): Fatal - Indication of translation direction is required by means of specifying the ontology iri from which the data originates"
         
-        # Return the resulting query, rendered into valid sparql format
-        return (str(rq))
+        # Determine the type of data: sparql query or sparql query result set.
+        if isinstance(data, SparqlQueryResultSet):
+            # Data are SQRset
+            if data.isResponseToASK():
+                # A Boolean True or False doesn't need translation
+                return data
+            elif data.isResponsetoSELECT():
+                # 1 - Translate the IRI's that are applied in the result set,
+                # 2 - Transform the values that occur
+                raise NotImplementedError("Mediator.translate(): Fatal - Almost implemented: the translation of query result sets")
+        elif isinstance(data, str) and data != '':
+            # Data are a sparql query
+            # All iri's are represented with embraced '< >' pair. Make sure that this is the case
+            if source_onto_ref[0] != '<' and source_onto_ref[-1] != '>':
+                source_onto_ref = '<' + source_onto_ref + '>'
+    
+            # 1a - Parse the sparql data into graph (tree)
+            rq = parseQuery(data)
+            if rq == []:
+                raise RuntimeError("Mediator.translate(): Couldn't parse query:\n{}".format(data))
+    
+            # 1b - Base the comparison between querygraph and aligment on full iri's: Thus expand the iri's in the querygraph. 
+            rq.expandIris()
+    #         print (rq.dump())
+    
+            # 2a - Loop over all alignments
+            for name, align in self.alignments.items():
+                # 2b - Determine what is the source and what the target entity expression for this data, i.e., determine direction for translation
+    #             print("Direction specified by source '{}'\nAlignment specifies '{}'".format(source_onto_ref, str(align.getSrcOnto()))) 
+                if source_onto_ref == str(align.getSrcOnto()):
+                    # 3 - This alignment addresses this data for a forward translation, hence loop over all correspondences
+                    for corr in align.getCorrespondences():
+                        srcEE = corr.getEE1()
+                        tgtEE = corr.getEE2()
+    #                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+                        # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
+                        _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
+                        #TODO: use result of the translation in the semantic protocol
+                elif source_onto_ref == str(align.getTgtOnto()):
+                    # 3 - This alignment addresses this data for a backwards translation, hence loop over all correspondences
+                    for corr in align.getCorrespondences():
+                        srcEE = corr.getEE2()
+                        tgtEE = corr.getEE1()
+    #                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+                        # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
+                        _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
+                        #TODO: use result of the translation in the semantic protocol
+                else:
+                    warnings.warn("Mediator.translate(): Alignment '{}' cannot translate data that originate from ontology {}".format(name, source_onto_ref), category=UserWarning)
+            
+            # Return the resulting query, rendered into valid sparql format
+            return (str(rq))
             
     def __len__(self):
         '''
