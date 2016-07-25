@@ -32,7 +32,6 @@ from parsertools.base import ParseStruct
 from parsertools.parsers.sparqlparser import SPARQLParser
 import warnings
 from builtins import str
-from distutils.dist import warnings
 from utilities.namespaces import NSManager  
 from utilities import utils      
 from mediator import mediatorTools
@@ -40,6 +39,7 @@ import json
 from json.decoder import JSONDecodeError
 from xml.etree import ElementTree
 from xml.etree.ElementTree import ParseError
+from collections import namedtuple
 
 
 def determineBGPPosition(node=None):
@@ -90,7 +90,8 @@ def determineBGPPosition(node=None):
         return None
     return Context.localLabels[bgpPos]
 
-
+QueryForm = namedtuple('QueryForm', ['select', 'ask', 'construct', 'describe'])
+queryForm = QueryForm('SELECT', 'ASK', 'CONSTRUCT', 'DESCRIBE')
     
 class Context():
     '''
@@ -164,6 +165,7 @@ class Context():
                 Input: None.
                 '''
                 self.referred = None      # (ParseInfo): the atomic node in the sparql tree that is referred to by the Edoal Entity Element.
+                self.translated = False   # (Boolean): keeps track whether the referred node has already been translated or not. A node can only be translated once.
                 self.type = ''       # (String, canonical as Context.localLabels): the Basic Graph Pattern position that the entity is about: <S|P|O>.
                 self.binds = set()   # (List of String)(optional): a list of names of the Vars that are bound in this triple. 
                 self.associates = {} # (Dict{S|P|O, ParseInfo}): the annotated (s,p,o) triple, each of which refers to a QPNode in the triple and is annotated with its BGP position.
@@ -251,6 +253,20 @@ class Context():
                 if type(qpnode).__name__ in ['VAR1', 'VAR2']:
                     if not qpnode == self.referred:
                         self.binds.add(str(qpnode))
+            
+            def replaceWith(self, tgtIri=None):
+                '''
+                Replace the IRI in the referred node with the target IRI. This is an in-line replacement.
+                Input: tgtIri (string), representing a valid IRI.
+                return: True on successful replacement; False otherwise, indicating:
+                 * the triple had been translated already
+                '''
+                assert NSManager.isIRI(tgtIri), "QPTTripleRef(): Cannot exchange a node without a proper target IRI, got '{}'".format(tgtIri)
+                if not self.translated:
+                    self.referred.updateWith(tgtIri)
+                    self.translated = True
+                    return True
+                return False
             
             def __repr__(self):
                 result = "node:\n\tof type   : " + str(self.type) + "\n\tabout     : " + str(self.referred)
@@ -385,9 +401,14 @@ class Context():
             elif nType in ['ObjectList', 'ObjectListPath']:
                 # Node has potentially more than one object that share the property. Hence:
                 # 1 - get triples for each object, and extend the return list with it.
-                for objNode, comma in utils.grouper(rq_node.getChildren(), 2, ","):
-                    assert type(objNode).__name__ in ['Object', 'ObjectPath'] and str(comma) == ",", "Context...getTriples(): (['Object' | 'ObjectPath'], ',') pair expected, got ('{}', '{}'). Please file BUG report.".format(objNode, comma)
-                    qptList.extend(self.getTriples(rq_node=objNode, referred=referred))
+                for objNode1, objNode2 in utils.grouper(rq_node.getChildren(), 2, ","):
+                    # Since the "," is not a typed node, we need to go around this and test if there actually *is* a second object(path). 
+                    assert type(objNode1).__name__ in ['Object', 'ObjectPath'], "Context...getTriples(): (['Object' | 'ObjectPath'], ',') pair expected, got ('{}', '{}'). Please file BUG report.".format(objNode1, objNode2)
+                    qptList.extend(self.getTriples(rq_node=objNode1, referred=referred))
+                    if type(objNode2).__name__ in ['Object', 'ObjectPath']:
+                        qptList.extend(self.getTriples(rq_node=objNode2, referred=referred))
+                    elif objNode2 != ",":
+                        raise AssertionError("Context...getTriples(): (['Object' | 'ObjectPath'], ',') pair expected, got ('{}', '{}'). Please file BUG report.".format(objNode1, objNode2))
                         
             elif nType in ['ObjectPath', 'Object']:
                 # Node has only an Object descendant, hence:
@@ -448,6 +469,7 @@ class Context():
 
             # 2 - Determine the BGP position of the query node.
             bgpPos = determineBGPPosition(rq_node)
+
 #             print("Context...addQPTRefs(): Looking for triples that share the '{}' position of node '{}'.".format(bgpPos, rq_node))
             
             # 3 - Find all (incomplete) triples that share this node, i.e., a downwards direction.
@@ -527,19 +549,19 @@ class Context():
                                     raise RuntimeError("Context...addQPTRefs(): Triples CANNOT be complete already when associating the property '{}'. Please file a BUG".format(verb))
                             elif child == verb:
                                 # The triples originated from this property/properties branch, hence:
-                                # 1 - Associate the Property node with the triples
+                                # 1 - Associate the Property node as referred node with the triples
                                 # 2 - Since this Property nodes should NOT complete the triples, check if that is so.
                                 done = False
                                 for triple in triples:
 #                                     print("Context...addQPTRefs(): Make Property Association for: {}".format(triple))
-                                    done = triple.addAssociate(bgp_type="property", assoc_node=verb) or done
+                                    done = triple.addReferred(bgp_type="property", referred=verb) or done
                                 if done:
                                     raise RuntimeError("Context...addQPTRefs(): Triples CANNOT be complete already when associating the property '{}'. Please file a BUG".format(verb))
                                 
 
             # 5 - Add the triples to the QPTAssociation object
             self.qptRefs.extend(triples)
-            print("Context...addQPTRefs(): Adding {} triples brings Total to: {}".format(len(triples), len(self.qptRefs)))
+#             print("Context...addQPTRefs(): Adding {} triples brings Total to: {}".format(len(triples), len(self.qptRefs)))
 
     
         def getQPTRef(self, about):
@@ -551,6 +573,22 @@ class Context():
             assert len(refs) == 0, "Did not expect more than one matches for {}".format(about)
             return None
                    
+        def getQPTRefs(self):
+            refs = []
+            for n in self.qptRefs:
+                refs.append(n)
+            return refs
+                   
+        def translateTo(self, tgtEntity):
+            '''
+            Translates all triples in the query that this Association relates to. Translation implies the exchange of the 
+            current IRI's with the IRI of the target entity. This is an in-place replacement.
+            Output: N/A
+            '''
+            assert isinstance(tgtEntity, mediatorTools._Entity), "Context.QPTripleAssociation.translate(): Cannot translate without a target entity, got '{}'".format(repr(tgtEntity))
+            for qptRef in self.getQPTRefs():
+                assert qptRef.replaceWith(tgtEntity.getIriRef()), "Context.QueryPatternTripleAssociation.translateTo(): Cannot translate an already translated sparql node ({})".format(str(qptRef))
+            
         def __str__(self):
             result = str(self.represents) + '\n\t'
             for n in self.qptRefs:
@@ -790,7 +828,7 @@ class Context():
             # Currently, ignore more than one query contexts and search the whole graph.
               
             srcNodes = self.parsedQuery.searchElements(element_type=entity_type, value=entityIRI)
-            print("Context.__init__(): Found graph nodes: ", srcNodes)
+#             print("Context.__init__(): Found graph nodes: ", srcNodes)
             if srcNodes == []: 
                 warnings.warn("Context.__init__(): Cannot find element '{}' of type '{}' in sparqlData. Ignoring this entity".format(entityIRI, entity_type))
             else:
@@ -857,52 +895,89 @@ class Context():
     def render(self):
         print(self.__str__())
             
-    def getSparqlElements(self):
-        result = []
-        print("Context.VarConstraints.getSparqlElements(): NOT IMPLEMENTED: Searching for sparql elements that are associated with <{}>".format(self.entity_expr))
-        return(result)
 
 
-class sparqlQueryResultSet(): 
+class SparqlQueryResultSet(): 
     '''
-    This class represents a sparql query result set, i.e., as specified by https://www.w3.org/TR/sparql11-overview/#sparql11-results
+    This class represents a sparql query result set (SQRS), i.e., as specified by https://www.w3.org/TR/sparql11-overview/#sparql11-results
     In principle all four different formats should be supported (XML, JSON, CSV and TSV). Currently, only a JSON parser is supported.
     '''
+    # Define the format identifiers
+    Format = namedtuple('Format', ['json', 'xml', 'nvPairs'])
+    qrsFormat = Format('JSON','XML', 'DICT')
+    
     def __init__(self, result_set=None):
         '''
-        Create a sparql result set object from the input string.
-        * input: a string that represents a sparql result set. Currently only a JSON-formatted string is supported.
+        Create a SQRS object from the input string.
+        * input: a string that represents a SQRS. Currently only a JSON-formatted string is supported.
+        Attributes:
+            * qrsRaw - (string): The raw input query result set.
+            * qrsFormat - (qrsFormat.xml, qrsFormat.json, qrsFormat.nvPairs): the format of the raw query result set; xml, json or dict, resp.
+            * qType - (queryForm): the type of the query that led to this query result set
         '''
+        
+        # Determine the input type: a dict, an xml-string, or a json-string, and set the qrsFormat accordingly
         if isinstance(result_set, dict):
             assert "head" in result_set, "sparqlTools.sparqlQueryResultSet(): Cannot parse unknown dictionary structure, got {}".format(result_set)
             # Assume dictionary is structured according to query-result-set specification
-            self.qResult = result_set
+            self.qrsRaw = result_set
+            self.qrsFormat = SparqlQueryResultSet.qrsFormat.nvPairs
         elif isinstance(result_set, str):
             # Establish format by trying XML and JSON parser
             try:
                 root = ElementTree.fromstring(result_set)
+                self.qrsFormat = SparqlQueryResultSet.qrsFormat.xml
                 #TODO: Parse XML-format
                 raise NotImplementedError("sparqlTools.sparqlQueryResultSet(): Cannot parse an XML-formatted result string (yet, please implement  me)")
             except ParseError:
                 try:
-                    self.qResult = json.loads(result_set)
+                    self.qrsRaw = json.loads(result_set)
+                    self.qrsFormat = SparqlQueryResultSet.qrsFormat.json
                 except JSONDecodeError as err:
                     raise NotImplementedError("sparqlTools.sparqlQueryResultSet(): Cannot parse query result set formatted as CSV or TSV (yet, please implement me")
         else:
             raise NotImplementedError("sparqlTools.sparqlQueryResultSet(): Cannot parse query result set formatted other than string or dict, got {}".format(type(result_set)))
         # Parse the (json) dict
-        assert "head" in self.qResult, "sparqlTools.sparqlQueryResultSet(): label 'head' expected in sparql result set, none found"
+        assert "head" in self.qrsRaw, "sparqlTools.sparqlQueryResultSet(): label 'head' expected in sparql result set, none found"
 #         print("sparqlQueryResultSet.init(): head reads '{}' ({})".format(self.qResult["head"], len(self.qResult["head"])))
         if len(self.qResult["head"]) > 0:
             # Result set is response from SELECT query
-            self.qType = 'SELECT'
-            self.vars = self.qResult["head"]["vars"]
-            self.bindings = self.qResult["results"]["bindings"]
+            self.qType = queryForm.select
+#             self.bindings = self.qResult["results"]["bindings"]
         else:
             # Result set is response from ASK query
-            self.qType = 'ASK'
-            self.boolean = self.qResult["boolean"]
+            self.qType = queryForm.ask
 
+    def getVars(self):
+        '''
+        Get the variables that are used in this query result set
+        '''
+        assert self.qType == queryForm.select, "SparqlQueryResultSet.getVars(): Fatal - query result set of '{}' query does not contain variables.".format(self.qType)
+        assert self.qrsFormat == SparqlQueryResultSet.qrsFormat.json, "SparqlQueryResultSet.getVars(): Fatal - only json-formats support (yet, please implement me)"
+        return self.qResult["head"]["vars"]
+    
+    def getQueryType(self):
+        '''
+        Return the type of query that this SQRS is a response to.
+        returns one of: 'SELECT', 'ASK', 'CONSTRUCT', 'DESCRIBE'
+        '''
+        return self.qType
+    
+    def isResponseToASK(self):
+        return self.getQueryType() == queryForm.ask
+    def isResponsetoSELECT(self):
+        return self.getQueryType() == queryForm.select
+    
+    def hasSolution(self):
+        '''
+        Return whether or not a solution to the ASKed query pattern exists. 
+        returns: True on available solution(s), False otherwise.
+        '''
+        assert self.qType == queryForm.ask, "SparqlQueryResultSet.getVars(): Fatal - cannot test the existence of a solution from a '{}' query.".format(self.qType)
+        assert self.qrsFormat == SparqlQueryResultSet.qrsFormat.json, "SparqlQueryResultSet.getVars(): Fatal - only json-formats support (yet, please implement me)"
+        return self.qResult["boolean"]
+
+        
     def __repr__(self):
         if self.qType == 'ASK':
             return str(self.qType, self.boolean)

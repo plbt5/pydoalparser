@@ -35,7 +35,7 @@
 		"mf:result": [
 			{ "rdf:type": "PASS", "value": "QPTAssoc01.srj" , "id" : "1" },
 			{ "rdf:type": "PASS", "value": "QPTAssoc01.srj" , "id" : "2" },
-			{ "rdf:type": "FAIL", "value": "AssertionError", "id" : "3" }
+			{ "rdf:type": "PASS", "value": "QPTAssoc01.srj", "id" : "3" }
 		] 
 	},
 	"test_2": {
@@ -68,7 +68,7 @@
 		"mf:result": [
 			{ "rdf:type": "PASS", "value": "QPTAssoc02.srj" , "id" : "1" },
 			{ "rdf:type": "PASS", "value": "QPTAssoc02.srj" , "id" : "2" },
-			{ "rdf:type": "FAIL", "value": "AssertionError", "id" : "3" }
+			{ "rdf:type": "PASS", "value": "QPTAssoc02.srj",  "id" : "3" }
 		] 
 	},
 	"test_3": {

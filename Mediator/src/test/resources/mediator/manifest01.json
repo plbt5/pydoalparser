@@ -6,9 +6,10 @@
 	} ,
 	"mf:entries": [ "test_1" ],
 	"test_1": {
-		"rdf:type": 	"testType04" ,
-		"mf:SUT":		"translate" ,
-		"mf:name":		"testTranslate" ,
+		"rdf:type": 	"testType01" ,
+		"mf:SUT":		"translate()" ,
+		"mf:testDef":	"testTranslate" ,
+		"mf:class":		"Mediator" ,
 		"rdfs:comment":	"Translate atomic entities, incl. their atomic individuals - (i) forward, (ii) backward, and (iii) not at all (no alignment specified for those iri's)." ,
 		"mf:action": {
 			"mf:subject": { "alignment": { "value" : "../examples/alignTemp1A-1B.xml"}

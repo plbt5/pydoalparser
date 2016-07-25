@@ -6,9 +6,10 @@
 	} ,
 	"mf:entries": [ "test_1" , "test_2"],
 	"test_1": {
-		"rdf:type": 	"testType01" ,
-		"mf:SUT":		"testInit" ,
-		"mf:name":		"TestSparqlQueryResultSet" ,
+		"rdf:type": 	"testType02" ,
+		"mf:SUT":		"__init__" ,
+		"mf:testDef":	"testInit" ,
+		"mf:class":		"Context.SparqlQueryResultSet" ,
 		"rdfs:comment":	"JSON format, SELECT and ASK result set." ,
 		"mf:action": {
 			"mf:subject": { "rdf:type" : "sparql_var" , "value" : "?v" }, 
@@ -16,19 +17,20 @@
 				{ "rdf:type" : "file", "value" : "sparqlTools/selectQueryResultSet01.srj", "id" : "1" },
 				{ "rdf:type" : "string", "value" : "appelepap", "id" : "2" },
 				{ "rdf:type" : "dict", "value" : { "head" : { } , "boolean" : true }, "id" : "3" },
-				{ "rdf:type" : "file", "value" : "sparqlTools/AskQueryResultSetTrue.srj", "id" : "3" }
+				{ "rdf:type" : "file", "value" : "sparqlTools/AskQueryResultSetTrue.srj", "id" : "4" }
 			]
 		},
 		"mf:result": [
-			{ "rdf:type": "PASS", "value": "sparqlTools/passSelectQueryResultSet01.srj" , "id" : "1" },
-			{ "rdf:type": "FAIL", "value": "NotImplementedError" , "id" : "2" },
-			{ "rdf:type": "PASS", "value": "sparqlTools/passAskQueryResultSetTrue.srj" , "id" : "3" }
+			{ "rdf:type": "PASS", "value": "sparqlTools/selectQueryResultSet01Pass.srj" , "id" : "1" },
+			{ "rdf:type": "FAIL", "value": { "rdf:type": "error", "value": "NotImplementedError" }, "id" : "2" },
+			{ "rdf:type": "PASS", "value": "sparqlTools/askQueryResultSetTruePass.srj" , "id" : "3" } 
 		] 
 	} ,
 	"test_2": {
 		"rdf:type": 	"testType01" ,
-		"mf:SUT":		"testInit" ,
-		"mf:name":		"TestSparqlQueryResultSet" ,
+		"mf:SUT":		"__init__" ,
+		"mf:testDef":	"testInit" ,
+		"mf:class":		"Context.SparqlQueryResultSet" ,
 		"rdfs:comment":	"XML format, SELECT and ASK result set." ,
 		"mf:action": {
 			"mf:subject": { "rdf:type" : "sparql_var" , "value" : "?t" }, 
