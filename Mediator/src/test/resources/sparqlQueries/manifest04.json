@@ -4,7 +4,7 @@
 		"mf:file": "manifest04.json" ,
 		"rdfs:comment": "Sparql Query result set validation"
 	} ,
-	"mf:entries": [ "test_1" , "test_2"],
+	"mf:entries": [ "test_1" , "test_2", "test_3", "test_4"],
 	"test_1": {
 		"rdf:type": 	"testType02" ,
 		"mf:SUT":		"__init__" ,
@@ -41,6 +41,64 @@
 		},
 		"mf:result": [
 			{ "rdf:type": "FAIL", "value": "NotImplementedError" , "id" : "1" }
+		] 
+	} ,
+	"test_3": {
+		"rdf:type": 	"testType01" ,
+		"mf:SUT":		"__init__" ,
+		"mf:testDef":	"testIsSparqlResult" ,
+		"mf:class":		"sparqlTools.def" ,
+		"rdfs:comment":	"test to recognise a sparql query result set in XML and JSON format." ,
+		"mf:action": {
+			"mf:subject": { "rdf:type" : "" , "value" : "" }, 
+			"mf:data" : [
+				{ "rdf:type" : "file", "value" : "sparqlTools/selectQueryResultSet01.srx", "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/AskQueryResultSetTrue.srx", "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/syntacticValidQueryResultSet-1.srx", "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/syntacticValidQueryResultSet-2.srx", "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/askQueryResultSetTrue.srj" , "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/selectQueryResultSet01.srj", "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/filter-result-pass-01.srj", "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/AskQueryFail01.rq", "id" : "2" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/manifest01.json", "id" : "2" },
+				{ "rdf:type" : "none", "value" : "", "id" : "3" },
+				{ "rdf:type" : "string", "value" : "", "id" : "3" }
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "True" , "id" : "1" },
+			{ "rdf:type": "PASS", "value": "False" , "id" : "2" },
+			{ "rdf:type": "FAIL", "value": "AssertionError" , "id" : "3" }
+		] 
+	},
+	"test_4": {
+		"rdf:type": 	"testType01" ,
+		"mf:SUT":		"__init__" ,
+		"mf:testDef":	"testIsSparqlQuery" ,
+		"mf:class":		"sparqlTools.def" ,
+		"rdfs:comment":	"test to recognise a sparql query in XML and JSON format." ,
+		"mf:action": {
+			"mf:subject": { "rdf:type" : "" , "value" : "" }, 
+			"mf:data" : [
+				{ "rdf:type" : "file", "value" : "sparqlTools/filterFail1.rq", "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/AskQueryPass01.rq", "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/syntacticValidQuery-1.rq", "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/syntacticValidQuery-2.rq", "id" : "1" },
+				{ "rdf:type" : "string", "value" : "SELECT ?v WHERE {}" , "id" : "1" },
+				{ "rdf:type" : "string", "value" : "DESCRIBE ?v WHERE {}" , "id" : "1" },
+				{ "rdf:type" : "string", "value" : "CONSTRUCT  {}" , "id" : "1" },
+				{ "rdf:type" : "string", "value" : "ASK WHERE {}" , "id" : "1" },
+				{ "rdf:type" : "string", "value" : "BASE <http://my.example.com/>" , "id" : "1" },
+				{ "rdf:type" : "file", "value" : "sparqlTools/manifest01.json", "id" : "2" },
+				{ "rdf:type" : "integer", "value" : "42", "id" : "2" },
+				{ "rdf:type" : "none", "value" : "", "id" : "3" },
+				{ "rdf:type" : "string", "value" : "", "id" : "3" }
+			]
+		},
+		"mf:result": [
+			{ "rdf:type": "PASS", "value": "True" , "id" : "1" },
+			{ "rdf:type": "PASS", "value": "False" , "id" : "2" },
+			{ "rdf:type": "FAIL", "value": "AssertionError" , "id" : "3" }
 		] 
 	} 
 }

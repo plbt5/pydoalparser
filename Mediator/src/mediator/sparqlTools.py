@@ -36,6 +36,7 @@ from utilities.namespaces import NSManager
 from utilities import utils      
 from mediator import mediatorTools
 import json
+from os import linesep
 from json.decoder import JSONDecodeError
 from xml.etree import ElementTree
 from xml.etree.ElementTree import ParseError
@@ -92,6 +93,52 @@ def determineBGPPosition(node=None):
 
 QueryForm = namedtuple('QueryForm', ['select', 'ask', 'construct', 'describe'])
 queryForm = QueryForm('SELECT', 'ASK', 'CONSTRUCT', 'DESCRIBE')
+SparqlType = namedtuple('SparqlType', ['query', 'result_set', 'result_graph'])
+sparqlType = SparqlType('QUERY', 'RESULT_SET', 'RESULT_GRAPH')
+
+class SparqlData():
+    '''
+    This represents the parent class for any sparql data that is to be mediated and communicated.  
+    '''
+    def __init__(self):
+        self.parsed = None
+        self.type = None
+
+def isSparqlResult(data=None):  
+    '''
+    Test, in a naive way, whether the data represents a sparql query response. Naive, since when parsing passes the first line
+    it is considered so.
+    Input: an xml formatted string, or a json formatted dict. Any other format will return False
+    '''
+    assert data and data != '', "Cannot determine type of data without data"
+    if isinstance(data, dict):
+        # Assume JSON format or regular dict format
+        return "head" in data
+    elif isinstance(data, str):
+        # Assume XML format
+        try:
+            data = ' '.join(data.split()) # remove white spaces
+            data = linesep.join([s for s in data.splitlines() if s]) # remove empty lines
+            root = ElementTree.fromstring(data)
+            return root.tag == '{http://www.w3.org/2005/sparql-results#}sparql'
+        except Exception: pass
+    return False
+def isSparqlQuery(data=None):
+    '''
+    Test, in a naive way, whether the data represents a sparql query. Naive, since when parsing passes the first line
+    it is considered a sparql query
+    '''
+    assert data and data != '', "Cannot determine type of data without data"
+    if isinstance(data, str):
+        try:
+            for line in data.splitlines():
+                line = ' '.join(line.split()) # remove white spaces
+                if len(line) != 0 and line[0] != "#":
+                    word = line.split()[0]
+                    return word in ["PREFIX", "BASE", "SELECT", "CONSTRUCT", "DESCRIBE", "ASK"]
+            return False
+        except Exception: pass
+    return False
     
 class Context():
     '''
@@ -605,9 +652,9 @@ class Context():
     class VarConstraints():
         '''
         The use of variables in the LIMIT clause of the sparql query is to bind constraints to the individuals of an entity. Constraints are specified
-        by value logic expressions, the entity individuals by triple matches from the WHERE clause. This class VarConstraints is designed to relate, through
-        the use of the variables, the entities with the constraints. Each class object represents the characteristics on how one variable is being bound to 
-        the constraints. These characteristics are determined by inspection of the parsed tree.
+        by value logic expressions, and the entity individuals are specified by triple matches from the WHERE clause. 
+        This class VarConstraints is designed to relate, through the use of the variables, the entities with the constraints. Each class object represents 
+        the characteristics on how one variable is being bound to the constraints. These characteristics are determined by inspection of the parsed tree.
         '''
                 
         def isBoundBy(self, qp_node):
@@ -793,7 +840,7 @@ class Context():
         self.nsMgr = None        # (namespaces.NSManager): the current nsMgr that can resolve any namespace issues of this mediator 
         
 #         assert isinstance(entity_expression, Mediator.EntityExpression) and isinstance(sparqlTree, ParseStruct)
-        assert isinstance(sparqlTree, ParseStruct) and isinstance(nsMgr, NSManager), "Context.__init__(): Parsed sparql tree and namespace mgr required"
+        assert isinstance(sparqlTree, ParseStruct) and isinstance(nsMgr, NSManager), "Context.__init__(): Parsed sparql request and namespace mgr required"
         assert isinstance(entity_expression, mediatorTools.EntityExpression), "Context.__init__(): Cannot create context without subject entity expression"
 
         # Initialize self
@@ -900,7 +947,7 @@ class Context():
 class SparqlQueryResultSet(): 
     '''
     This class represents a sparql query result set (SQRS), i.e., as specified by https://www.w3.org/TR/sparql11-overview/#sparql11-results
-    In principle all four different formats should be supported (XML, JSON, CSV and TSV). Currently, only a JSON parser is supported.
+    Although all four different serialisation formats should be supported (XML, JSON, CSV and TSV), currently, only a JSON parser is supported.
     '''
     # Define the format identifiers
     Format = namedtuple('Format', ['json', 'xml', 'nvPairs'])
@@ -915,23 +962,26 @@ class SparqlQueryResultSet():
             * qrsFormat - (qrsFormat.xml, qrsFormat.json, qrsFormat.nvPairs): the format of the raw query result set; xml, json or dict, resp.
             * qType - (queryForm): the type of the query that led to this query result set
         '''
-        
+        # An SQRS can be transformed
+        self.isTransformed = False
         # Determine the input type: a dict, an xml-string, or a json-string, and set the qrsFormat accordingly
         if isinstance(result_set, dict):
             assert "head" in result_set, "sparqlTools.sparqlQueryResultSet(): Cannot parse unknown dictionary structure, got {}".format(result_set)
             # Assume dictionary is structured according to query-result-set specification
-            self.qrsRaw = result_set
-            self.qrsFormat = SparqlQueryResultSet.qrsFormat.nvPairs
+            self.qrsRaw = json.loads(json.dumps(result_set))
+            self.qrsFormat = SparqlQueryResultSet.qrsFormat.json
         elif isinstance(result_set, str):
             # Establish format by trying XML and JSON parser
             try:
                 root = ElementTree.fromstring(result_set)
+                # result_set could be parsed, hence the result_set was formatted as XML, hence store that fact
                 self.qrsFormat = SparqlQueryResultSet.qrsFormat.xml
                 #TODO: Parse XML-format
                 raise NotImplementedError("sparqlTools.sparqlQueryResultSet(): Cannot parse an XML-formatted result string (yet, please implement  me)")
             except ParseError:
                 try:
                     self.qrsRaw = json.loads(result_set)
+                    # result_set could be parsed by json parser, hence the result_set was formatted as JSON, hence store that fact
                     self.qrsFormat = SparqlQueryResultSet.qrsFormat.json
                 except JSONDecodeError as err:
                     raise NotImplementedError("sparqlTools.sparqlQueryResultSet(): Cannot parse query result set formatted as CSV or TSV (yet, please implement me")
@@ -939,13 +989,12 @@ class SparqlQueryResultSet():
             raise NotImplementedError("sparqlTools.sparqlQueryResultSet(): Cannot parse query result set formatted other than string or dict, got {}".format(type(result_set)))
         # Parse the (json) dict
         assert "head" in self.qrsRaw, "sparqlTools.sparqlQueryResultSet(): label 'head' expected in sparql result set, none found"
-#         print("sparqlQueryResultSet.init(): head reads '{}' ({})".format(self.qResult["head"], len(self.qResult["head"])))
-        if len(self.qResult["head"]) > 0:
-            # Result set is response from SELECT query
+        if len(self.qrsRaw["head"]) > 0:
+            # Result set is response to SELECT query
             self.qType = queryForm.select
 #             self.bindings = self.qResult["results"]["bindings"]
         else:
-            # Result set is response from ASK query
+            # Result set is response to ASK query
             self.qType = queryForm.ask
 
     def getVars(self):
@@ -954,7 +1003,15 @@ class SparqlQueryResultSet():
         '''
         assert self.qType == queryForm.select, "SparqlQueryResultSet.getVars(): Fatal - query result set of '{}' query does not contain variables.".format(self.qType)
         assert self.qrsFormat == SparqlQueryResultSet.qrsFormat.json, "SparqlQueryResultSet.getVars(): Fatal - only json-formats support (yet, please implement me)"
-        return self.qResult["head"]["vars"]
+        return self.qrsRaw["head"]["vars"]
+    
+    def getBindings(self):
+        '''
+        Get the bindings results from this query result set
+        '''
+        assert self.qType == queryForm.select, "SparqlQueryResultSet.getBindings(): Fatal - query result set of '{}' query does not contain bindings.".format(self.qType)
+        assert self.qrsFormat == SparqlQueryResultSet.qrsFormat.json, "SparqlQueryResultSet.getBindings(): Fatal - only json-formats support (yet, please implement me)"
+        return self.qrsRaw["results"]["bindings"]
     
     def getQueryType(self):
         '''
@@ -965,7 +1022,7 @@ class SparqlQueryResultSet():
     
     def isResponseToASK(self):
         return self.getQueryType() == queryForm.ask
-    def isResponsetoSELECT(self):
+    def isResponseToSELECT(self):
         return self.getQueryType() == queryForm.select
     
     def hasSolution(self):
@@ -974,16 +1031,35 @@ class SparqlQueryResultSet():
         returns: True on available solution(s), False otherwise.
         '''
         assert self.qType == queryForm.ask, "SparqlQueryResultSet.getVars(): Fatal - cannot test the existence of a solution from a '{}' query.".format(self.qType)
-        assert self.qrsFormat == SparqlQueryResultSet.qrsFormat.json, "SparqlQueryResultSet.getVars(): Fatal - only json-formats support (yet, please implement me)"
-        return self.qResult["boolean"]
+        assert self.qrsFormat == SparqlQueryResultSet.qrsFormat.json, "SparqlQueryResultSet.getVars(): Fatal - got '{}', but only json-formats support (yet, please implement me)".format(self.qrsFormat)
+        return self.qrsRaw["boolean"]
 
+    def transform(self, var, corr):
+        '''
+        Transform the SQRS. 
+        An SQRS consists of individuals only. Therefore, translations of entities are not applicable and hence no such method 
+        exists on an SQRS. Contradictory, a transformation of individuals (values) is very relevant.
+        The transformation is in-place, and one can only transform an SQRS once.  
+        '''
+        return None
+        
+    def __len__(self):
+        '''
+        Returns the length of the query solution, which equals the number of bindings to the variables tuple (as it was defined in the sparql query by 
+        the SELECT-clause) that matched its Query Pattern and Modifier. 
+        returns: 1 as response to ASK queries; the number of bindings as response to SELECT queries; None otherwise
+        '''
+        return len(self.qrsRaw["results"]["bindings"]) if self.isResponseToSELECT() else 1 if self.isResponseToASK() else None
         
     def __repr__(self):
-        if self.qType == 'ASK':
-            return str(self.qType, self.boolean)
-        elif self.qType == 'SELECT':
-            return str(self.qType, self.vars, self.bindings)
+        if self.isResponseToASK():
+            return str(self.qType) + ': ' + str(self.qrsRaw["boolean"])
+        elif self.isResponseToSELECT():
+            return str(self.qType) + ': ' + str(self.getVars()) + ': ' + str(self.qrsRaw["results"]["bindings"])
         else:
             # Unknown type, hence return what is known...
-            return str(self.qType, self.qResult)
+            return str(self.qType, self.qrsRaw)
+    
+    def __str__(self):
+        return (repr(self))
         

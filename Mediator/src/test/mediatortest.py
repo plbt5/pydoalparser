@@ -119,7 +119,7 @@ class TestMediator(unittest.TestCase):
                         with open(self.testdir + filename) as f:
                             results_exp = f.read()
                         # Do the test, i.e., translate the query
-                        result = mediator.translate(data = sparl_string, source_onto_ref = srcOntoIri)
+                        result = mediator.translate(raw_data = sparl_string, source_onto_ref = srcOntoIri)
 #                         print("\tTranslation result: {}\n".format(str(result)))
                         # Verify the result
                         assert str(result) == results_exp, "Expected: \n{}\nGot:\n{}".format(results_exp, str(result))
@@ -128,7 +128,7 @@ class TestMediator(unittest.TestCase):
                         rq = parseQuery(sparl_string)
                         rq.expandIris()                        
                         with self.assertWarns(AS_EXCEPTION_TYPE[testCriteria["value"]]):
-                            result = mediator.translate(data = sparl_string, source_onto_ref = srcOntoIri)
+                            result = mediator.translate(raw_data = sparl_string, source_onto_ref = srcOntoIri)
                         assert str(result) == str(rq), "Found '{}'\nexptd '{}'".format(str(result),rq)
                     else: raise TestException("Invalid test data, unknown criterion '{}'".format(testCriteria["rdf:type"]))
                         

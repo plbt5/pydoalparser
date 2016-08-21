@@ -8,10 +8,13 @@ Created on 26 feb. 2016
 from parsertools.parsers.sparqlparser import parseQuery
 from utilities import namespaces
 from mediator import EDOALparser
-from mediator.sparqlTools import SparqlQueryResultSet
+from mediator.sparqlTools import SparqlQueryResultSet, isSparqlQuery, isSparqlResult,\
+    Context
 from builtins import str
 import warnings
 import os.path
+from uuid import uuid1
+from pywin.scintilla import bindings
 
 class Mediator(object):
     '''
@@ -40,6 +43,30 @@ class Mediator(object):
             super().__init__()
         def update(self, *args, **kwargs):
             return dict.update(self, *args, **kwargs)
+
+    class TranslationResult():
+        '''
+        Translations that are performed by the mediator are not always straightforward. For instance, only part of the data might be 
+        translatable, or, just like a sparql query result set relates to the sparql query, their translations are related as well.
+        This class serves as intermediate for storing translation results that are relevant to consider when having a semantic
+        interaction, i.e., to direct the semantic protocol, or when translating query results back. 
+        The class will contain:
+        * a unique identifier
+        * the context for a sparql query
+        * more stuff when deemed relevant
+        '''
+        def __init__(self, c=None):
+            self.id = uuid1()
+            if c: self.context = self.addContext(c)
+            else: self.context = None
+        
+        def addContext(self, c=None):
+            '''
+            add the sparqlTools.Context to this translation result. Only one context can be added.
+            '''
+            assert isinstance(c, Context)
+            if not self.context:
+                self.context = c
    
     def __init__(self, nsDict={}, *, about=None):
         '''
@@ -87,7 +114,7 @@ class Mediator(object):
     def getNSs(self):
         return(self.nsMgr)
             
-    def translate(self, *, data=None, source_onto_ref=None):
+    def translate(self, *, raw_data=None, source_onto_ref=None):
         '''
         Translate the data according to the EDOAL alignment cells that are stored in correspondence objects
         - data (sparql query as string): the data to be translated; this data can represent one out of the following
@@ -100,67 +127,77 @@ class Mediator(object):
         As of this moment, only SPARQL SELECT and ASK queries are supported
         '''
         # Process:
-        # 1 - parse sparlq data
-        # 2 - Run over all alignments and check its src and tgt ontology iri's to match with the source ontology the data originates from
+        # 1 - Prepare the input data:
+        #    (i) in case of query data, parse the query string
+        #    (ii) in case of query result data, create a class from it
+        # 2 - Loop over all alignments (currently only one) and check its src and tgt ontology iri's to match with the source ontology the data originates from
         #     (this also establishes the translation direction)
         # 3 - On a match: loop over all correspondences in an alignment in order to ...
         # 4 - ... let the correspondence determine if and how to translate the data
 
-        assert data, "Mediator.translate(): Fatal - data required"
+        assert raw_data, "Mediator.translate(): Fatal - data required"
         assert source_onto_ref, "Mediator.translate(): Fatal - Indication of translation direction is required by means of specifying the ontology iri from which the data originates"
         
+        # 1 - prepare the input data
         # Determine the type of data: sparql query or sparql query result set.
-        if isinstance(data, SparqlQueryResultSet):
-            # Data are SQRset
+        
+#         print("Mediator.translate(): translating data ...")
+        if isSparqlResult(raw_data):
+            print("Mediator.translate(): translating a Sparql Result Set ...")
+            # (i) Data are sparql query result set (SQRset), hence create sparql result object
+            data = SparqlQueryResultSet(raw_data)
+            
             if data.isResponseToASK():
                 # A Boolean True or False doesn't need translation
                 return data
-            elif data.isResponsetoSELECT():
-                # 1 - Translate the IRI's that are applied in the result set,
-                # 2 - Transform the values that occur
-                raise NotImplementedError("Mediator.translate(): Fatal - Almost implemented: the translation of query result sets")
-        elif isinstance(data, str) and data != '':
-            # Data are a sparql query
-            # All iri's are represented with embraced '< >' pair. Make sure that this is the case
-            if source_onto_ref[0] != '<' and source_onto_ref[-1] != '>':
-                source_onto_ref = '<' + source_onto_ref + '>'
+            elif not data.isResponseToSELECT():
+                raise RuntimeError("Mediator.translate(): Fatal - Can only translate query result responses to ASK or SELECT queries, got '{}'".format(data.getQueryType()))
+        elif isSparqlQuery(raw_data):
+            # (ii) Data are a sparql query
+            # (ii) a - Parse the sparql data into graph (tree)
+            data = parseQuery(raw_data)
+            if data == []:
+                raise RuntimeError("Mediator.translate(): Couldn't parse query:\n{}".format(raw_data))
     
-            # 1a - Parse the sparql data into graph (tree)
-            rq = parseQuery(data)
-            if rq == []:
-                raise RuntimeError("Mediator.translate(): Couldn't parse query:\n{}".format(data))
-    
-            # 1b - Base the comparison between querygraph and aligment on full iri's: Thus expand the iri's in the querygraph. 
-            rq.expandIris()
-    #         print (rq.dump())
-    
-            # 2a - Loop over all alignments
-            for name, align in self.alignments.items():
-                # 2b - Determine what is the source and what the target entity expression for this data, i.e., determine direction for translation
-    #             print("Direction specified by source '{}'\nAlignment specifies '{}'".format(source_onto_ref, str(align.getSrcOnto()))) 
-                if source_onto_ref == str(align.getSrcOnto()):
-                    # 3 - This alignment addresses this data for a forward translation, hence loop over all correspondences
-                    for corr in align.getCorrespondences():
-                        srcEE = corr.getEE1()
-                        tgtEE = corr.getEE2()
-    #                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
-                        # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
-                        _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
-                        #TODO: use result of the translation in the semantic protocol
-                elif source_onto_ref == str(align.getTgtOnto()):
-                    # 3 - This alignment addresses this data for a backwards translation, hence loop over all correspondences
-                    for corr in align.getCorrespondences():
-                        srcEE = corr.getEE2()
-                        tgtEE = corr.getEE1()
-    #                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
-                        # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
-                        _ = corr.translate(parsed_data=rq, srcEE=srcEE, tgtEE=tgtEE)
-                        #TODO: use result of the translation in the semantic protocol
-                else:
-                    warnings.warn("Mediator.translate(): Alignment '{}' cannot translate data that originate from ontology {}".format(name, source_onto_ref), category=UserWarning)
+            # (ii) b - Base the comparison between querygraph and aligment on full iri's: Thus expand the iri's in the querygraph. 
+            data.expandIris()
+            # (ii) c - Create the context for this query
             
-            # Return the resulting query, rendered into valid sparql format
-            return (str(rq))
+            # (ii) d - Create the Translation result and add the context
+        else: 
+            raise RuntimeError("Mediator.translate(): Fatal - Expected sparql query, or query result set, got:\n{}".format(raw_data))
+
+        # 1b - All iri's are represented with embraced '< >' pair. Make sure that this is the case
+        if source_onto_ref[0] != '<' and source_onto_ref[-1] != '>':
+            source_onto_ref = '<' + source_onto_ref + '>'
+
+        # 2 - Loop over all alignments
+        for name, align in self.alignments.items():
+            # 2a - Determine what is the source and what the target entity expression for this data, i.e., determine direction for translation
+#             print("Direction specified by source '{}'\nAlignment specifies '{}'".format(source_onto_ref, str(align.getSrcOnto()))) 
+            if source_onto_ref == str(align.getSrcOnto()):
+                # 3 - This alignment addresses this data for a forward translation, hence loop over all correspondences
+                for corr in align.getCorrespondences():
+                    srcEE = corr.getEE1()
+                    tgtEE = corr.getEE2()
+#                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+                    # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
+                    _ = corr.translate(parsed_data=data, srcEE=srcEE, tgtEE=tgtEE)
+                    #TODO: use result of the translation in the semantic protocol
+            elif source_onto_ref == str(align.getTgtOnto()):
+                # 3 - This alignment addresses this data for a backwards translation, hence loop over all correspondences
+                for corr in align.getCorrespondences():
+                    srcEE = corr.getEE2()
+                    tgtEE = corr.getEE1()
+#                     print("Mediator.translate(): Translating '{}' to '{}' according to Alignment '{}'".format(srcEE,tgtEE,name))
+                    # 4 - Let the correspondence establish whether it does or does not match something in the data, and can translate accordingly
+                    _ = corr.translate(parsed_data=data, srcEE=srcEE, tgtEE=tgtEE)
+                    #TODO: use result of the translation in the semantic protocol
+            else:
+                warnings.warn("Mediator.translate(): Alignment '{}' cannot translate data that originate from ontology {}".format(name, source_onto_ref), category=UserWarning)
+            
+        # Return the resulting query, rendered into valid format
+        return (str(data))
             
     def __len__(self):
         '''

@@ -392,13 +392,13 @@ class transformTest(unittest.TestCase):
                     }
                 },
             'fail': {
-                # 
-                'resources/valueSimpleFail1.xml': { 
-                    'FailRelation3': AssertionError         # Valid attribute, invalid element (element is not empty) 
-                    },
-                'resources/valuePathFail1.xml': { 
-                    'FailComplexPathNotImpl'  : NotImplementedError    # Correct path, but too complex to be implemented yet
+                'MyFailFile': { 
+                    'My Fail Key in MyFailFile': AssertionError         # Valid attribute, invalid element (element is not empty) 
                     }
+#                      ,
+#                 'resources/valuePathFail1.xml': { 
+#                     'FailComplexPathNotImpl'  : NotImplementedError    # Correct path, but too complex to be implemented yet
+#                     }
                 }
             } 
         )

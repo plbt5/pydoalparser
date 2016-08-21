@@ -14,6 +14,7 @@ Prerequisites:
 
 from mediator.mediator import Mediator
 from utilities import namespaces
+import json
 
 # Create a namespace specification 
 nsDict = {
@@ -43,15 +44,30 @@ print("\nOriginal query: \n{}".format(sparl_string))
 
 # Translate the query accoring to the alignment
 # This call requires the data to translate, and also the source ontology that the data originates from in order to indicate the translation direction
-queryTranslated = m.translate(data = sparl_string, source_onto_ref = "http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#")
+queryTranslated = m.translate(raw_data = sparl_string, source_onto_ref = "http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#")
 print("\nTranslated query: \n{}".format(queryTranslated))
-
-#TODO: The translated query can now be sent to the sparql endpoint of the collaborating application
-# For that, make use of a sparql endpoint wrapper: https://rdflib.github.io/sparqlwrapper/
 
 # Since the aligment specifies a bidirectional translation, the translated query (that is in terms of ontoTemp1B#) can be  translated back into 
 # a query on (the original) ontology ontoTemp1A#
 # To that end, we take the translated query and reverse the direction of translation
 
-double_translated_query = m.translate(data = queryTranslated, source_onto_ref = "http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#")
+double_translated_query = m.translate(raw_data = queryTranslated, source_onto_ref = "http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#")
 print("\nReverse translated query: \n{}".format(double_translated_query))
+
+# Now, for the query has been translated, it is ready to be forwarded to the target triplestore endpoint.
+
+#TODO: The translated query can now be sent to the sparql endpoint of the collaborating application
+# For that, make use of a sparql endpoint wrapper: https://rdflib.github.io/sparqlwrapper/
+# For the moment, use a dummy file representing the response to the query. 
+with open("./exampleSelectQueryResultSet.srj", 'r') as f:
+    responseData = json.load(f)
+print("\nResponse data: \n{}".format(responseData))
+
+# The sparql result has been received. Before those results can be returned to the source application, those results require to be translated as well.
+# For this, the identical method can be called, however, since the data originates from the second ontology, this second ontology now represents 
+# the source ontology for this translation.
+
+responseDataTranslated = m.translate(raw_data = responseData, source_onto_ref = "http://ts.tno.nl/mediator/1.0/examples/ontoTemp1B#")
+print("\nTranslated response data: \n{}".format(responseDataTranslated))
+
+print(help('mediator'))

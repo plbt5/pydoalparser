@@ -10,7 +10,6 @@ from transformations import unitconversion
 import os.path
 import warnings
 
-
 #TODO: Remove tight coupling - create x-ref (in EDOALparser) between EDOAL and MEDIATOR constants
 
 from parsertools.parsers import sparqlparser
@@ -370,10 +369,9 @@ class Transformation():
             Transform a constraint according to the specified operation, but only when the specified condition is met. 
             Return the resulting value on success, return None otherwise.
             '''
-            #TODO: REFACTOR - this is far too complex. a transform should be made for a single ValueLogicExpression, not for a set of them!!
 
-            assert entityIriRef != '', "transform(): Missing entity."
-            assert isinstance(value_logic_expr, Context.VarConstraints.ValueLogicExpression), "transform(): Missing constraint."
+            assert entityIriRef != '', "Transformation...transform(): Missing entity."
+            assert isinstance(value_logic_expr, Context.VarConstraints.ValueLogicExpression), "Transformation...transform(): Missing constraint."
             # First, get all argument values that are necessary to perform the transformation
             #TODO: implement correct sequence of operands, by use of kwargs. Needs a x-ref between operands and method signature.
             args = []
@@ -388,7 +386,7 @@ class Transformation():
                         # i.e., its actual value is the argument, here the string "123" that needs to be converted to an integer.
                         val, val_type = operand.getLiteral()
                         #TODO: Literal as operands must take into account the value type of the literal, this is now ignored which increases the fault sensitivity
-                        warnings.warn("transform(): Found literal operand, IGNORING the value type {}, using its value only ({}). Please implement me.".format(val_type, val))
+                        warnings.warn("Transformation...transform(): Found literal operand, IGNORING the value type {}, using its value only ({}). Please implement me.".format(val_type, val))
                         args.append(val)
                     elif operand.isAttrExpression():
                         # A Relation or Property *refer* to the argument, e.g., <edoal:Property rdf:about="&ontoB;hasTempInF" /> refers to a Property, the value
@@ -397,7 +395,7 @@ class Transformation():
                         if operand.hasPath():
                             # the last element in the path is the one that bounds the variable
                             #TODO: implement path expression in the transform()
-                            raise NotImplementedError("transform(): Path expression (on {}) cannot be elaborated in the Transform (yet, please implement me)".format(operand))
+                            raise NotImplementedError("Transformation...transform(): Path expression (on {}) cannot be elaborated in the Transform (yet, please implement me)".format(operand))
                         else: 
                             # Operand is an atomic property or relation, hence add the value of its bound variable, but only
                             # if the var_constraint's entity equals the operand
@@ -405,26 +403,26 @@ class Transformation():
                             if entityIriRef == operand.getAttrExpression():
 #                                 print("VLE restriction: ", value_logic_expr['restriction'])
                                 args.append(str(value_logic_expr['restriction']))
-                            else: warnings.warn("transform(): got {} but was expecting to transform {}; ignored".format(operand.getAttrExpression, entityIriRef))
+                            else: warnings.warn("Transformation...transform(): got {} but was expecting to transform {}; ignored".format(operand.getAttrExpression, entityIriRef))
                     elif operand.isIndividual():
                         # Instances are always single entities that refer to an individual through its URI. Find the var that belongs to this URI, and get its value
-                        raise NotImplementedError("transform(): Cannot handle Individual operand ({}) definitions (yet, please implement).".format(operand))
+                        raise NotImplementedError("Transformation...transform(): Cannot handle Individual operand ({}) definitions (yet, please implement).".format(operand))
                     elif operand.isComputable():
-                        raise NotImplementedError("transform(): Cannot handle processing of recursive operation definitions (yet, please implement).")
+                        raise NotImplementedError("Transformation...transform(): Cannot handle processing of recursive operation definitions (yet, please implement).")
                         #TODO: implement recursive operations, i.e., performing a secondary operation to get the value for the principle operation.
                         # The recursion call is simple, but where do we get the transformation information from? Hence, we must 
                         # refer to another transformation object, and perform its Transform() method to get the appropriate value.
-                    else: raise RuntimeError("transform(): This should be dead code, apparently it isn't; got {} unexpectedly".format(operand.getEntityType()))
+                    else: raise RuntimeError("Transformation...transform(): This should be dead code, apparently it isn't; got {} unexpectedly. Please file a BUG report.".format(operand.getEntityType()))
 #                 print("args: [ ", end="")
 #                 for arg in args: print("{} ".format(arg), end="")
 #                 print("]")
                 # Step 2 - Assure that we have precisely sufficient arguments
-                assert len(self._operands) == len(args), "transform(): Cannot perform operation: expected {} arguments, got {}.".format(len(self._operands), len(args))
+                assert len(self._operands) == len(args), "Transformation...transform(): Cannot perform operation: expected {} arguments, got {}.".format(len(self._operands), len(args))
                 # Step 3 - Call the actual function with the found values as its arguments 
                 resultValue = self.getOperationResult(*args)
                 return resultValue
             else: 
-                warnings.warn("transform(): Cannot transform data because conditions for constraint '{}' are not met".format(value_logic_expr))
+                warnings.warn("Transformation...transform(): Cannot transform data because conditions for constraint '{}' are not met".format(value_logic_expr))
                 return None
 
             
@@ -445,7 +443,7 @@ class Correspondence():
     entity expression in ontology B. As such, a correspondence represents a language independent placeholder of the formal relationship that holds between 
     both entity expressions, i.e., the translation, as well as between their individuals, i.e., the transformation. The correspondence will maintain a 
     generic translation method that can be used to translate a data set conforming to ontoA, to a dataset conform ontoB. The correspondence can translate 
-    in both directions, form A to B or vice versa, depending on the namespaces that is being applied by the data to translate.
+    in both directions, from A to B or vice versa, depending on the namespaces that is being applied by the data to translate.
     A Correspondence can only have one source and one target entity expression, one relation and one measure property, 
     though it may have several transformation and linkkey properties. (See also: http://alignapi.gforge.inria.fr/edoal.html)
     '''
@@ -540,95 +538,126 @@ class Correspondence():
     
     
     def translate(self, *, parsed_data=None, srcEE=None, tgtEE=None):
-        from mediator.sparqlTools import Context
+        from mediator.sparqlTools import Context, SparqlQueryResultSet
         '''
         Translate the data according to the alignment from the Correspondence Class
-        - parsed_data (ParserTools.base.ParseStruct): the data to be translated; this data can represent one out of the following
+        - parsed_data (one of: ParserTools.base.ParseStruct, sparqlTools.SparqlQueryResultSet): the data to be translated; this data can represent one out of the following
             1: a sparql query (one of: SELECT, ASK, UPDATE, DESCRIBE)
             2: a sparql result set (refer to https://www.w3.org/TR/sparql11-results-json/#select-encode-terms for decoding the values of the variable bindings.)
             3: an RDF triple or RDF graph
         - srcEE, tgtEE (_Entity or _EntityConstruction): translation direction; the data represents an instance of the srcEE and needs to be translated into an instance of the tgtEE
         returns: (currently always) true; the translation is in place, meaning that the input parsed_data has been modified to match the translation
         
-        As of this moment, only data of type 1 is supported, and even then only SELECT
+        As of this moment, this methods only supports (i) sparql query, SELECT and ASK, (ii) sparql result sets.
         '''
         #TODO: Refactor - as opposed to feed a correspondence data to translate, feed each distinct data format (e.g., sparql, rdf) a correspondence towards its translation. 
-        assert parsed_data != [] and isinstance(parsed_data,ParseStruct), "Correspondence.translate(): query string expected, got '{}'".format(str(parsed_data))
+        assert parsed_data, "Correspondence.translate(): Fatal - Without data no translation"
         assert srcEE and isinstance(srcEE, EntityExpression), "Correspondence.translate(): EntityExpression expected for source, got {}".format(type(srcEE))
         assert tgtEE and isinstance(tgtEE, EntityExpression), "Correspondence.translate(): EntityExpression expected for target, got {}".format(type(tgtEE))
-        
-        # Determine the sparql context for the source entity expression in the parsed sparql tree, i.e., determine:
-        # the Node(s), their binding(s) and their constraining expression(s)
-#         print("Correspondence.translate(): namespace: ", str(self.nsMgr))
-        context = Context(entity_expression=srcEE, entity_type=sparqlparser.SPARQLParser.iri, sparqlTree=parsed_data, nsMgr=self.nsMgr)
-#         print("Correspondence.translate(): Created context:")
-#         context.render()
+        if not tgtEE.isAtomicEntity(): raise NotImplementedError("Correspondence.translate(): cannot translate into an entity *expression* (yet, please implement me), got {}".format(str(tgtEE)))
 
-        # Prepare the target for the translation, i.e., 
-        # 1 - turn target into the form that is being used in the current query (prefix or iri; it should be iri)
-        # 2 - get the namespace of the tgt, so that the namespace definitions in the query can be translated
+        # Determine the type of data to transform
+        if isinstance(parsed_data, SparqlQueryResultSet):
+            # Translate a sparql query result set
+            print("We moeten een RESULT SET vertalen")
 
-        if not tgtEE.isAtomicEntity(): raise NotImplementedError("translate(): cannot translate into an entity *expression* (yet, please implement me), got {}".format(str(tgtEE)))
-        tgt = self.nsMgr.asIRI(tgtEE.getIriRef())
-#         print('Correspondence.translate(): Updating {} to {}'.format(srcEE.getIriRef(), tgt) )
+            # The result set consists of variables bindings only, specifying for each variable its type and value. 
+            # This implies there is NO iri to translate, only a value to transform iff the variable was bound to an IRI for which 
+            # a constraint has been specified in the EDOAL alignment.
+            for binding in parsed_data.getBindings():
+                for var in parsed_data.getVars():
+                    
+                    if binding[var]["type"] == "uri":
+                        # The value for this variable represents some URI. This IRI is NOT related to any EDOAL Alignment definition.
+                        pass
+                    elif binding[var]["type"] == "literal":
+                        ====================
+                        #TODO: +++++++++++++++ HIER BEN IK GEBLEVEN ++++++++++++++++++ 
+                        # Transform the literal, when a constraint has been specified for this var
+                        # Refer to step 2a below, i.e., loop over correnspondences
+                        pass
+                    elif binding[var]["type"] == "bnode":
+                        #TODO: What to do with a blank node in a query result set??
+                        pass
+                    else:
+                        raise RuntimeError("Mediator.translate(): Fatal - Unknown RDF term ({}) in Sparql Query Result Set".format(binding[var]["type"]))
 
-        tgt_prefix, tgt_pf_expansion, tgt_iri_path = self.nsMgr.splitIri(tgtEE.getIriRef())
-        tgt_prefix += ':'
-        tgt_pf_expansion = '<' + tgt_pf_expansion + '>'
-        
-        # Translate ee1 into ee2. 
-        # 1 - Determine the query context that the source entity refers. 
-        assert srcEE.getIriRef() in context.qptAssocs, "Correspondence:translate(): entity '{}' has no association in Query".format(srcEE.getIriRef())
-        # Translate the iri
-        qptAssoc = context.qptAssocs[srcEE.getIriRef()]
-        qptAssoc.translateTo(tgtEE)
-                
-        # Translate the namespace that this iri lives in
-        # IS THIS STILL NECESSARY?? PREFIX EXPANSION HAS BEEN APPLIED!
-        for epf in qptAssoc.pfdNodes:
-            #TODO: translating a [PrefixDecl] for a prefix, is only valid if ALL iri's that are referenced
-            # by that namespace, are translated. This is not guaranteed a priori. Hence, the code below might break the validity of the query
-#                 print("Correspondence.translate(): Updating [PNAME_NS]: {}={} with {}={}".format(epf,qptAssoc.pfdNodes[epf]['ns_iriref'],tgt_prefix,tgt_pf_expansion))
-            if str(qptAssoc.pfdNodes[epf]['node'].namespace) == qptAssoc.pfdNodes[epf]['ns_iriref'] and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == epf:
-                qptAssoc.pfdNodes[epf]['node'].prefix.updateWith(tgt_prefix)
-                qptAssoc.pfdNodes[epf]['node'].namespace.updateWith(tgt_pf_expansion)
-            elif str(qptAssoc.pfdNodes[epf]['node'].namespace)[1:-1] == tgt_pf_expansion and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == tgt_prefix:
-                # Already updated this [PNAME_NS] by an earlier entity_expression in the same namespace
-                pass
-            else: raise KeyError("Correspondence.translate(): Expected ({},{}), got ({},{})".format(epf, qptAssoc.pfdNodes[epf]['ns_iriref'], qptAssoc.pfdNodes[epf]['node'].prefix, qptAssoc.pfdNodes[epf]['node'].namespace))
-        
-        # 2 - Then transform the constraints from the Query Modification part of the query.
-        #     The _ee1 can be bound to more than one variable, and each variable can have more constraints.
-        #     The nodes in the query modification part, i.e., the qmNodes in the context, is represented as a dictionary
-        #     for which the ee1 indexes a list of variables. 
-        #     Each variable is represented by a qmNode; each constraint by a valueLogic.
-        
-#         print ("Correspondence.translate(): looping over vars: {}".format(list(context.constraints.keys())))
-        for var in context.constraints:
-            # Address all variable constraints that use this variable 
-            for vc in context.constraints[var]:
-                if vc.getBoundVar() == '': break #TODO: Refactor how context.constraints[var] is being build, since a constraint is driven by a variable (toch??) and here we can/need to skip empty boundVars??
-                # Address all atomic value logic expressions, i.e., the dictionary with entries {'varRef': varRef, 'comparator': comparator, 'restriction': restriction}
-                for vle in vc.getValueLogicExpressions():
-#                     print("\tvar: '{}', var constraint: '{}'".format(var, vle))
-                    # Now a value logic expression is found, now find the transformation to apply, i.e., loop over all transformations
-                    # TODO: refactor, since this is a clumsy way of finding the transformation that is appropriate to apply on this variable (or in fact, the entity it is bound by)
-                    if srcEE.isAtomicEntity():
-                        srcIriRef = srcEE.getIriRef()
-                    else: 
-#                         if any(map(lambda op: op in tf.getOperands(), srcEE.getEntities())):
-#                             tf.transform(var_constraints = vc)
-                        raise NotImplementedError("Correspondence.translate(): Can only translate atomic entities, not entity expressions (yet, please implement me)")
-                    for tf in self.getTransforms():
-                        for operand in tf.getOperands():
-                            if operand.getIriRef() == srcIriRef: 
-                                result = tf.transform(entityIriRef = srcIriRef, value_logic_expr = vle)
-#                                 print("Correspondence.translate(): Updating restriction in constraint {} into '{}'".format(vc, str(result)))
-                                vle['restriction'].updateWith(str(result))
-        
-#         print("Translation result: ", end="")
-#         context.parsedQuery.render()
+
+
+
+        elif isinstance(parsed_data, ParseStruct):
+            # Translate a sparql query
+            
+            # 0 - Determine the sparql context for the source entity expression in the parsed sparql tree, i.e., determine:
+            #     the Node(s), their binding(s) and their constraining expression(s)
+            #TODO: (Performance) Create context once, for the data that is to be translated (in mediator.translate), as opposed to many times for each translation in each correspondence
+            context = Context(entity_expression=srcEE, entity_type=sparqlparser.SPARQLParser.iri, sparqlTree=parsed_data, nsMgr=self.nsMgr)
+
+            # Translate ee1 into ee2. 
+            # 1 - Determine the query context that the source entity refers. 
+            assert srcEE.getIriRef() in context.qptAssocs, "Correspondence:translate(): entity '{}' has no association in Query".format(srcEE.getIriRef())
+            # Translate the iri
+            qptAssoc = context.qptAssocs[srcEE.getIriRef()]
+            qptAssoc.translateTo(tgtEE)
+                    
+            # 2 - Then transform the constraints from the Query Modification part of the query.
+            #     The _ee1 can be bound to more than one variable, and each variable can have more constraints.
+            #     The nodes in the query modification part, i.e., the qmNodes in the context, is represented as a dictionary
+            #     for which the ee1 indexes a list of variables. 
+            #     Each variable is represented by a qmNode; each constraint by a valueLogic.
+            
+    #         print ("Correspondence.translate(): looping over vars: {}".format(list(context.constraints.keys())))
+            for var in context.constraints:
+                # Address all variable constraints that use this variable 
+                for vc in context.constraints[var]:
+                    if vc.getBoundVar() == '': break #TODO: Refactor how context.constraints[var] is being build, since a constraint is driven by a variable (toch??) and here we can/need to skip empty boundVars??
+                    # Address all atomic value logic expressions, i.e., the dictionary with entries {'varRef': varRef, 'comparator': comparator, 'restriction': restriction}
+                    for vle in vc.getValueLogicExpressions():
+    #                     print("\tvar: '{}', var constraint: '{}'".format(var, vle))
+                        # Now a value logic expression is found, now find the transformation to apply, i.e., loop over all transformations
+                        # TODO: refactor, since this is a clumsy way of finding the transformation that is appropriate to apply on this variable (or in fact, the entity it is bound by)
+                        if srcEE.isAtomicEntity():
+                            srcIriRef = srcEE.getIriRef()
+                        else: 
+    #                         if any(map(lambda op: op in tf.getOperands(), srcEE.getEntities())):
+    #                             tf.transform(var_constraints = vc)
+                            raise NotImplementedError("Correspondence.translate(): Can only translate atomic entities, not entity expressions (yet, please implement me)")
+                        for tf in self.getTransforms():
+                            for operand in tf.getOperands():
+                                if operand.getIriRef() == srcIriRef: 
+                                    result = tf.transform(entityIriRef = srcIriRef, value_logic_expr = vle)
+    #                                 print("Correspondence.translate(): Updating restriction in constraint {} into '{}'".format(vc, str(result)))
+                                    vle['restriction'].updateWith(str(result))
+            
+            # 3 - Translate the namespace that this iri lives in
+            #     IS THIS STILL NECESSARY?? PREFIX EXPANSION HAS BEEN APPLIED!
+            #     Prepare the target for the translation, i.e., 
+            #     1 - get the namespace of the tgt, so that the namespace definitions in the query can be translated
+    #         tgt = self.nsMgr.asIRI(tgtEE.getIriRef())
+    #         print('Correspondence.translate(): Updating {} to {}'.format(srcEE.getIriRef(), tgt) )
+            tgt_prefix, tgt_pf_expansion, tgt_iri_path = self.nsMgr.splitIri(tgtEE.getIriRef())
+            tgt_prefix += ':'
+            tgt_pf_expansion = '<' + tgt_pf_expansion + '>'
+    
+            for epf in qptAssoc.pfdNodes:
+                #TODO: translating a [PrefixDecl] for a prefix, is only valid if ALL iri's that are referenced
+                # by that namespace, are translated. This is not guaranteed a priori. Hence, the code below might break the validity of the query
+    #                 print("Correspondence.translate(): Updating [PNAME_NS]: {}={} with {}={}".format(epf,qptAssoc.pfdNodes[epf]['ns_iriref'],tgt_prefix,tgt_pf_expansion))
+                if str(qptAssoc.pfdNodes[epf]['node'].namespace) == qptAssoc.pfdNodes[epf]['ns_iriref'] and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == epf:
+                    qptAssoc.pfdNodes[epf]['node'].prefix.updateWith(tgt_prefix)
+                    qptAssoc.pfdNodes[epf]['node'].namespace.updateWith(tgt_pf_expansion)
+                elif str(qptAssoc.pfdNodes[epf]['node'].namespace)[1:-1] == tgt_pf_expansion and str(qptAssoc.pfdNodes[epf]['node'].prefix)[:-1] == tgt_prefix:
+                    # Already updated this [PNAME_NS] by an earlier entity_expression in the same namespace
+                    pass
+                else: raise KeyError("Correspondence.translate(): Expected ({},{}), got ({},{})".format(epf, qptAssoc.pfdNodes[epf]['ns_iriref'], qptAssoc.pfdNodes[epf]['node'].prefix, qptAssoc.pfdNodes[epf]['node'].namespace))
+            
+    
+    #         print("Translation result: ", end="")
+    #         context.parsedQuery.render()
+
+        else:
+            raise AttributeError("Correspondence.translate(): Fatal - Sparql Query or Sparql Result Set expected, got '{}'".format(str(parsed_data)))
+
         return True
-
 
 
