@@ -1,0 +1,42 @@
+# baseURI: http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A
+
+@prefix : <http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A>
+  rdf:type owl:Ontology ;
+  owl:versionInfo "Created with TopBraid Composer"^^xsd:string ;
+.
+:Patient
+  rdf:type rdfs:Class ;
+  rdfs:comment "A Person with a temperature"^^xsd:string ;
+  rdfs:label "Patient"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:hasTemp
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "This temperature does not have a indication of unit. It is implicitly known that the temperature is measured in Centigrades"^^xsd:string ;
+  rdfs:domain :Patient ;
+  rdfs:range xsd:float ;
+.
+:Pete
+  rdf:type :Patient ;
+  :hasTemp "37"^^xsd:float ;
+  rdfs:comment "A stable patient"^^xsd:string ;
+  rdfs:label "Peter Rabbit"^^xsd:string ;
+.
+:Croc
+  rdf:type :Patient ;
+  :hasTemp "24"^^xsd:float ;
+  rdfs:comment "Reptiles may have temperatures, but these are not so indicative to their overall health"^^xsd:string ;
+  rdfs:label "Christopher Crocodile"^^xsd:string ;
+.
+:Missy
+  rdf:type :Patient ;
+  :hasTemp "42"^^xsd:float ;
+  rdfs:comment "A patient with too high a temperature"^^xsd:string ;
+  rdfs:label "Miss Piggy"^^xsd:string ;
+.

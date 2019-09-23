@@ -1,0 +1,36 @@
+{
+  "head": { "vars": [ "p" , "v" ]
+  } ,
+  "results": { 
+    "bindings": [
+      {
+        "p": { "type": "uri" , "value": "http://example.org/client/patient6" } ,
+        "v": { "type": "literal" , "value": "101.5" }
+      } ,
+      {
+        "p": { "type": "uri" , "value": "http://example.org/client/patient7" } ,
+        "v": { "type": "literal" , "value": "99.3" }
+      } ,
+      {
+        "p": { "type": "uri" , "value": "http://example.org/client/patient5" } ,
+        "v": { "type": "literal" , "value": "110" }
+      } ,
+      {
+        "p": { "type": "uri" , "value": "http://example.org/client/patient4" } ,
+        "v": { "type": "literal" , "value": "98.6" }
+      } ,
+      {
+        "p": { "type": "uri" , "value": "http://example.org/client/patient2" } ,
+        "v": { "type": "literal" , "value": "99.9" }
+      } ,
+      {
+        "p": { "type": "uri" , "value": "http://example.org/client/patient3" } ,
+        "v": { "type": "literal" , "value": "112" }
+      } ,
+      {
+        "p": { "type": "uri" , "value": "http://example.org/client/patient1" } ,
+        "v": { "type": "literal" , "value": "100" }
+      }
+    ]
+  }
+}

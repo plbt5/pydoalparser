@@ -1,0 +1,11 @@
+PREFIX ns:     <http://tutorial.topbraid.com/ontoA/>
+PREFIX foaf:   <http://xmlns.com/foaf/0.1/>
+PREFIX xsd:    <http://www.w3.org/2001/XMLSchema>
+
+SELECT ?p ?t WHERE 
+    {
+        ?p a foaf:Person .
+        ?p ns:hasTemp ?t .
+         FILTER (  ?t > 37.0 
+                 ).
+    } 

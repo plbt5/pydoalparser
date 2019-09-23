@@ -1,0 +1,35 @@
+{
+	"head": {
+		"vars": [ "s", "p", "o" ]
+	} ,
+	"results": {
+		"bindings": [
+			{
+				"s": { "type": "VAR1", "value": "?r" } ,
+				"p": { "type": "IRI", "value": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>" } ,
+				"o": { "type": "IRI", "value": "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#hasTemp>" }
+			},
+			{
+				"s": { "type": "VAR1", "value": "?p" } ,
+				"p": { "type": "IRI", "value": "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#hasTemp>" } ,
+				"o": { "type": "VAR1", "value": "?t" }
+			},
+			{
+				"s": { "type": "IRI", "value": "<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#hasTemp>" } ,
+				"p": { "type": "VAR1", "value": "?r" } ,
+				"o": { "type": "VAR1", "value": "?t" }
+			}
+		],
+		"constraints" : {
+			"?t" : [
+				{
+					"restriction": { "type": "DECIMAL", "value": "37.0" } ,
+					"varRef"	 : { "type": "VAR1", "value": "?t" } ,
+					"comparator" : { "type": "GT", "value": ">" } 
+				}
+			],
+			"?r" : [],
+			"?p" : []
+		}
+	}
+}

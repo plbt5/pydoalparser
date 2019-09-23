@@ -1,0 +1,9 @@
+# test query
+PREFIX	ontoA:	<http://ts.tno.nl/mediator/1.0/examples/ontoTemp1A#>
+PREFIX	rdf:	<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+ASK  { 
+    ?p rdf:type ontoA:Patient ;
+	ontoA:hasTemp ?t .
+	FILTER (?t < 37.0 )
+} 
