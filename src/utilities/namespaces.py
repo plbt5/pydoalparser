@@ -5,6 +5,7 @@ Created on 1 apr. 2016
 '''
 
 # TODO: gebruik lxml in plaats van xml.etree
+# TODO: Vervang namespace DIY implementation by the rfc3987 package 
 import xml.etree.ElementTree as ET
 from builtins import str
 import warnings

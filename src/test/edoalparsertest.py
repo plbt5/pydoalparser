@@ -4,13 +4,80 @@ Created on 21 apr. 2016
 @author: brandtp
 '''
 import unittest
-import warnings
+# import warnings
 
 from edoalparser.EDOALparser import Alignment
-from edoalparser.parserTools import EClass
+# from edoalparser.parserTools import EClass
 from test.mytestexceptions import TestException
 from utilities.namespaces import NSManager
-import xml.etree.ElementTree as etree
+# import xml.etree.ElementTree as etree
+
+# import inspect
+# import json
+# from itertools import zip_longest
+
+# Skeleton for a manifest.json driven test process
+#
+#     def setUp(self):
+#         self.testdir = './resources/'
+#         filepath = self.testdir + 'manifestXX.json'
+#         print("="*30)
+#         print("Test configuration from {}:".format(filepath))
+#         with open(filepath) as f:    
+#             self.testCases = json.load(f)
+# 
+#     def testSomeModuleName(self):
+#         testModuleName = inspect.currentframe().f_code.co_name
+#         tests = [entry for entry in self.testCases["mf:entries"] if self.testCases[entry]["mf:testDef"] == testModuleName]
+#         print('Testcase: "{}" about {}, module under test "{}" has {} tests'.format(self.testCases["manifest"]["mf:name"], self.testCases["manifest"]["rdfs:comment"], testModuleName, len(tests)))
+#         for test in tests:
+#             print('\t* {}: Testing {}.{} ({}): '.format(test, self.testCases[test]["mf:class"], self.testCases[test]["mf:SUT"], self.testCases[test]["rdfs:comment"]), end="")
+#             for testData in self.testCases[test]["mf:action"]["mf:data"]:
+#
+#                 # According to test_type03 in manifest ########################
+#                 # Get the test data, i.e., the sparql_iri and its node in the sparql tree
+#                 testParameter = testData["your_testparameter"]["value"]
+#                 if testParameter == testdatacriterion: raise TestException("Incorrect test data, cannot find {}".format(testdatacriterion))
+#                 # Create the test data from other test parameters
+#
+#                 # According to test_type04 in manifest ########################
+#                 if testData["rdf:type"] == "file": 
+#                     file = self.testdir + testData["value"]
+#                     with open(file) as f:
+#                         testString = f.read()
+#                 elif testData["rdf:type"] == "string" or testData["rdf:type"] == "dict":
+#                     testString = testData["value"]
+#                 elif testData["rdf:type"] == "none":
+#                     testString = None                
+#                 else: raise TestException("Incorrect test data, expected 'file' or 'string', got {}".format(testData["rdf:type"]))
+#
+#                 # Get test criteria
+#                 # According to test_type04 in manifest ########################
+#                 for testCriteria in [r for r in self.testCases[test]["mf:result"] if r["id"]==testData["id"]]:
+#                     # Now adapt the test environment to the PASS or FAIL tests
+#                     if testCriteria["rdf:type"] == "PASS":
+#                         # Get the test criterion from file
+#                         file = self.testdir + testCriteria["value"]
+#                         with open(file) as f:
+#                             testCriterion = json.load(f)
+#                         
+#                         # Execute the PASS tests
+#                         # PERFORM THE OPERATION UNDER TEST
+#                         call me here
+#                         # Assert its validity
+#                         assert blahblahblah -- this is test dependent
+#                     elif testCriteria["rdf:type"] == "FAIL": 
+#                         # Fail scenarios
+#                         # Get the test criterion, i.e., the exception name that should be thrown
+#                         # PERFORM THE OPERATION UNDER TEST
+#                         try:
+#                             # Do the (failing) test call, and assert the correct exception is thrown
+#                             call me here
+#                             raise TestException("{}: failed the test, expected call to FAIL but it survived".format(testModuleName))
+#                         except Exception as e: assert type(e).__name__ == testCriteria["value"], "Expected exception '{}', got '{}'".format(testCriteria["value"], type(e))
+#                     else: raise TestException("Incorrect test criterion, expected 'PASS' or 'FAIL', got {}".format(testData["rdf:type"]))
+#                     print(".", end="")
+#             print(". done!")
 
 
 class TestEDOALParser(unittest.TestCase):
@@ -309,6 +376,8 @@ class TestEDOALParser(unittest.TestCase):
         pass
 
     def testParseEdoalAdmin(self):
+        '''parsing admin block of edoal should instantiate Alignment Object with valid admin getters, 
+        and raise exception on faulty or missing XML elements'''
 #         from mediator.EDOALparser import Alignment
         info = True
         debug = 3
@@ -378,8 +447,9 @@ class TestEDOALParser(unittest.TestCase):
                 except Exception as e: assert type(e) == f[1], 'TestNSManager {} should have raised exception {}; got {}'.format(f[0], f[1], type(e))
             # Test the need for a proper nsMgr
             properfile = list(t['pass'].keys())[0]
-            with self.assertRaises(AssertionError):
-                _ = Alignment(properfile, nsMgr=None)
+            self.assertRaises(AssertionError, Alignment, properfile, None)
+#             with self.assertRaises(AssertionError):
+#                 _ = Alignment(properfile, nsMgr=None)
             # Test adding the same alignment twice    
             pa = Alignment(properfile, nsMgr=self.nsMgr)
             with self.assertRaises(AssertionError):
